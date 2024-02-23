@@ -29,14 +29,14 @@ cd ICRA2024-Sim2Real-AXS
 
 Execution:
 
-```
+```sh
 ./scripts/docker_install.sh 
 ```
  
 
 Evaluation
 
-```
+```sh
 docker --version
 ```
 example:
@@ -143,7 +143,9 @@ To create container for baseline, use run_baseline.sh
 
 If the image have not found locally, it will pull from docker hub automatically. The image size for OmniGibson is about 60 Gb, for baseline is about 30 Gb. It will take some time to download. 
 
-**Please check the image tag in the scripts.** Current docker images are jieyitsinghuawx/icra2024-sim2real-axs-env:v1.0.0 and jieyitsinghuawx/icra2024-sim2real-axs-baseline:v1.0.0. To get newest tag, please follow the challenge website. 
+**Please check the image tag in the scripts.** Current docker images are jieyitsinghuawx/icra2024-sim2real-axs-env:v1.0.1 and jieyitsinghuawx/icra2024-sim2real-axs-baseline:v1.0.0. To get newest tag, please follow the challenge website. 
+
+If cannot pull docker by using `docker pull` command or using scrtpts, please download the image from Baidu Netdisk, the link is https://pan.baidu.com/s/1_4TQwKusE_5zB97GabJd6A?pwd=zbs1, the password is `zbs1`. After download the tar files, please run `create_image_env.sh` and `create_image_baseline.sh` in the scripts folder. **Causion:** Please check the file name and file path in the sctipts. 
 
 ### 1.5.2 Execute container
 
