@@ -1,0 +1,66 @@
+// python -m grpc_tools.protoc -I=. --python_out=. --grpc_python_out=. airbot/lm/rpc/service.proto
+
+syntax = "proto3";
+
+package LanguageModel;
+
+service InstructionService {
+  rpc extract (ExtractRequest) returns (ExtractResponse);
+}
+
+message ExtractRequest {
+  string model = 1;
+  string type = 2;
+  string message = 3;
+}
+
+message ExtractResponse {
+  string status = 1;
+  repeated string responses = 2;
+}
+
+service ImageService {
+  rpc detect (DetectRequest) returns (DetectResponse);
+  rpc segment (SegmentRequest) returns (SegmentResponse);
+}
+
+message DetectRequest {
+  string model = 1;
+  string target = 2;
+  Image image = 3;
+}
+
+message Image {
+  int32 height = 1;
+  int32 width = 2;
+  bytes data = 3;
+}
+
+message Point {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message BoundingBox {
+  Point center = 1;
+  double height_x = 2;
+  double width_y = 3;
+  double score = 4;
+}
+
+message DetectResponse {
+  string status = 1;
+  repeated BoundingBox boxes = 2;
+}
+
+message SegmentRequest {
+  string model = 1;
+  Point prompt = 2;
+  Image image = 3;
+}
+
+message SegmentResponse {
+  string status = 1;
+  Image mask = 2;
+  double score = 3;
+}
