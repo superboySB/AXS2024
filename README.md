@@ -43,8 +43,7 @@ The baseline image (and potentially the images you built) is based on the base i
 ```sh
 conda activate omnigibson && cd /omnigibson-src
 
-roscore &
-python -m omnigibson.AXS_env --ik
+roscore & python -m omnigibson.AXS_env --ik
 ```
 启动ros TF publish
 ```sh
@@ -98,6 +97,6 @@ Submit to dockerhub:
 ```sh
 docker push {username}/{repository_name}:{image_version}
 ```
-
+**Copy files from/to server/client containers**. You may refer to [this page](https://docs.docker.com/engine/reference/commandline/cp/) for copying files between containers and the host.Normally, when you need to update sources in the containers, you should change the source codes in this repo and refer to [this part](https://github.com/AIR-DISCOVER/ICRA2024-Sim2Real-RM#build-an-updated-client-image) to build an updated image. Directly copying files into containers should be used for debugging only.
 
 
