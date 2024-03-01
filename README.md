@@ -9,15 +9,13 @@ The simulation stage of the competition has begun. Please submit your client-sid
 ```sh
 git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x scripts/*
 ```
-构建两个containers，一个是omni gibson的，一个是baseline方法的，他们会自动拉image。
+构建两个containers，一个是omni gibson的，一个是我们方法（基于baseline的），他们会自动拉image。
 ```sh
 ./scripts/run_omni.sh
-./scripts/run_baseline.sh
-```
-运行两个containers
-```sh
-./scripts/exec_env.sh
-./scripts/exec_baseline.sh
+
+# docker build -t superboysb/axs2024:v1.0.0 .
+# ./scripts/run_baseline.sh
+./scripts/run_our_solution.sh
 ```
 ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)，回头再学习一下,基本如下：
 
@@ -60,6 +58,19 @@ roslaunch airbot_play_launch airbot_play_moveit.launch use_rviz:=true target_mov
 python /root/OmniGibson-Airbot/teleop_twist_keyboard_AXS.py
 ```
 
+## 运行自研算法
+在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main solution service`节点
+```sh
+cd ~/Workspace
+
+roslaunch hdl_localization hdl_localization.launch
+
+conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
+
+conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
+```
+
+
 ## 运行baseline
 进入算法对应另一个containers，在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main baseline service`节点
 ```sh
@@ -73,8 +84,6 @@ conda activate baseline && python /root/Workspace/AXS_baseline/ICRA2024-Sim2Real
 ```
 
 
-## 运行自研算法
-ongoing
 
 ## 提交结果镜像
 Submitting images requires registering for the ICRA2024-Sim2Real-RM challenges.
@@ -91,11 +100,11 @@ docker images
 ```
 Then change the name of the image that needs to be submitted：
 ```sh
-docker tag {image_id} {username}/{repository_name}:{image_version}
+docker tag {image_id} superboysb/axs2024:v1.0.0
 ```
 Submit to dockerhub:
 ```sh
-docker push {username}/{repository_name}:{image_version}
+docker push superboysb/axs2024:v1.0.0
 ```
 **Copy files from/to server/client containers**. You may refer to [this page](https://docs.docker.com/engine/reference/commandline/cp/) for copying files between containers and the host.Normally, when you need to update sources in the containers, you should change the source codes in this repo and refer to [this part](https://github.com/AIR-DISCOVER/ICRA2024-Sim2Real-RM#build-an-updated-client-image) to build an updated image. Directly copying files into containers should be used for debugging only.
 
