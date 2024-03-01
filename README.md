@@ -59,7 +59,7 @@ python /root/OmniGibson-Airbot/teleop_twist_keyboard_AXS.py
 ```
 
 ## 运行自研算法
-在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main solution service`节点
+进入算法对应另一个containers，在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main solution service`节点
 ```sh
 cd ~/Workspace
 
@@ -69,20 +69,6 @@ conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
 
 conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
 ```
-
-
-## 运行baseline
-进入算法对应另一个containers，在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main baseline service`节点
-```sh
-cd ~/Workspace
-
-roslaunch hdl_localization hdl_localization.launch
-
-conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
-
-conda activate baseline && python /root/Workspace/AXS_baseline/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
-```
-
 
 
 ## 提交结果镜像

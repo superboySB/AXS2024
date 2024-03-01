@@ -1,6 +1,6 @@
 # sudo docker rm -f baseline
 
-sudo docker run -itd --name solution --network=host \
+sudo docker run -itd --name omnigibson_solution --network=host \
     --gpus all \
     --privileged \
     --device=/dev/ttyUSB0 \
