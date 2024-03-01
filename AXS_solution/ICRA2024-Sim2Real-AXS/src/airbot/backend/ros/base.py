@@ -108,14 +108,22 @@ class RosBase(Base, backend="ros"):
     # def target_pose(self, value: Pose):
     #     self._target_pose = value
 
+    '''
+    move_to方法的主要目的是让机器人的底座移动到一个新的位置和方向。
+
+    position: 目标位置，一个包含x、y、z坐标的NumPy数组。
+    rotation: 目标方向，可以是四元数（包含x、y、z、w）的NumPy数组，也可以是欧拉角（包含roll、pitch、yaw）的NumPy数组。
+    frame_id: 目标位置和方向的参考坐标系ID。
+    avoid_swing: 一个布尔值，指示是否尝试避免机器人基座在移动过程中摆动。
+    '''
     def move_to(self, position: np.ndarray, rotation: np.ndarray, frame_id: str, avoid_swing: bool) -> tuple:
-        rospy.set_param("/airbot/base/avoid_swing", avoid_swing)
-        self.target_pose = self.pr_to_pose(position, rotation, frame_id)
+        rospy.set_param("/airbot/base/avoid_swing", avoid_swing) # 设置避免摆动参数：
+        self.target_pose = self.pr_to_pose(position, rotation, frame_id)  # 转换目标位置和方向
         start_time = rospy.get_time()
         print(rospy.get_param("/airbot/base/control_finished", False) )
         # self._publish_task()
         
-        while not rospy.get_param("/airbot/base/control_finished", False) and not rospy.is_shutdown():
+        while not rospy.get_param("/airbot/base/control_finished", False) and not rospy.is_shutdown(): # 等待移动完成
             # print("Base error: ", self._get_wait_error())
             if (rospy.get_time() - start_time > self.wait_timeout):
                 rospy.logerr("Move timeout! The robot may be stuck! The program will continue!")
@@ -128,7 +136,7 @@ class RosBase(Base, backend="ros"):
         #         rospy.logerr("Move timeout! The robot may be stuck! The program will continue!")
         #         break
         #     rospy.sleep(self.wait_period)
-        return position, rotation
+        return position, rotation  # 函数返回最终的位置和方向作为一个元组。
 
     # def move_to_hdl(self, position: np.ndarray, rotation: np.ndarray):
     #     goal_pose = self.pr_to_pose(position, rotation)

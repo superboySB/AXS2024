@@ -17,7 +17,7 @@ git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x 
 # ./scripts/run_baseline.sh
 ./scripts/run_our_solution.sh
 ```
-ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)，回头再学习一下,基本如下：
+ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)，回头再学习一下。
 
 ### Core (ROS Master)
 
@@ -67,7 +67,7 @@ roslaunch hdl_localization hdl_localization.launch
 
 conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
 
-conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
+conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_solution.py
 ```
 
 
