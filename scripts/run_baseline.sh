@@ -1,6 +1,6 @@
-sudo docker rm -f baseline
+# sudo docker rm -f baseline
 
-sudo docker run -it --name baseline --network=host \
+sudo docker run -itd --name baseline --network=host \
     --gpus all \
     --privileged \
     --device=/dev/ttyUSB0 \
