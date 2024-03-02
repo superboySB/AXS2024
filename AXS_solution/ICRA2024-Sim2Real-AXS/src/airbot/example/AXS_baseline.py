@@ -114,8 +114,12 @@ class Solution:
         self.running = True
         self.prompt = 'sky'
         self.update_once()
+
+        # 实例分割、定位的结果可视化后台执行
         self.t_vis = Thread(target=self.vis, daemon=True)
         self.t_vis.start()
+        
+        # 实例分割、定位的算法后台执行
         self.t_update = Thread(target=self.update, daemon=True)
         self.t_update.start()
 
@@ -169,6 +173,7 @@ class Solution:
         with self.result_lock:
             self._mask = copy.deepcopy(value)
 
+    # TODO: 一个基于groundingdino和fastsam的实例分割，可以尝试改为我的算法
     def update_once(self):
         with self.image_lock, self.result_lock:
             self._image = copy.deepcopy(self.camera.get_rgb())
@@ -221,25 +226,24 @@ class Solution:
         cam_cloud = depth2cloud(depth, intrinsic)
         cam_cloud = np.copy(np.concatenate((cam_cloud, image), axis=2))
         return camera2base(cam_cloud, shift, end_pose)
-
+    
+    # TODO: 抓取（经常失败）
     def grasp(self):
-        # find the center of self.mask
-        # center_cam = np.array(np.nonzeros(self.mask)).mean(axis=1)
-        # center_frame = self.base_cloud[center_cam]
-
-        # self.base.move_to(*self.OPERATE_BASE_POSE_1)
-        # self.arm.move_end_to_pose(*self.OPERATE_ARM_POSE)
-        # time.sleep(3)
-        # method = input('method')
         method = "2"
+
+        # 使用with self.image_lock, self.result_lock:获取图像、深度信息、边界框(bbox)和掩码(mask)的副本，以防止在抓取过程中数据被其他线程修改。
         with self.image_lock, self.result_lock:
             _depth = copy.deepcopy(self._depth)
             _image = copy.deepcopy(self._image)
             _bbox = copy.deepcopy(self._bbox)
             _mask = copy.deepcopy(self._mask)
 
+        # 计算抓取位置和旋转：
+        # 使用self.base_cloud方法计算出基于相机视角的点云数据。
         cloud = self.base_cloud(_image, _depth, self.camera.INTRINSIC, self.CAMERA_SHIFT, self.arm.end_pose)
 
+        # 根据method的值选择不同的抓取策略。这里method == "2"，所以直接计算出抓取位置grasp_position和旋转grasp_rotation。
+        # 抓取位置基于目标的边界框bbox，旋转则是根据预设角度来确定。
         if method == "1":
             direction = cloud[_bbox[0] - _bbox[2] // 2, _bbox[1]][:3] - self.arm.end_pose[0]
             direction = direction / np.linalg.norm(direction)
@@ -255,12 +259,18 @@ class Solution:
 
             grasp_rotation = Rotation.from_euler("yz", [np.pi / 2, np.pi / 2], degrees=False).as_quat()
 
+        # 执行抓取动作：首先，机械臂移动到计算出的抓取位置和旋转角度。等待2秒后，夹爪闭合，尝试抓取目标物体。
+        # 之后，再次等待4秒，确保夹爪稳固抓取后，将机械臂移动回标准移动位置。
         self.arm.move_end_to_pose(grasp_position, grasp_rotation)
         time.sleep(2)
         self.gripper.close()
         time.sleep(4)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
+    # 这是一个静态方法，用于可视化抓取过程。它不直接参与机器人的物理操作，而是用于调试和展示抓取策略。
+    # 准备点云数据：使用open3d库创建一个点云对象，并填充点云和颜色信息。
+    # 创建抓取组：使用GraspGroup类创建一个包含抓取位置和旋转的抓取表示。
+    # 可视化：显示点云、抓取位置和世界坐标系，以便于理解抓取动作在空间中的具体表现。
     @staticmethod
     def _vis_grasp(cloud, position, rotation):
         import open3d as o3d
@@ -275,6 +285,11 @@ class Solution:
         coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5, origin=[0, 0, 0])
         o3d.visualization.draw_geometries([o3d_cloud, *gg.to_open3d_geometry_list(), coordinate_frame])
 
+    # 这个方法处理将抓取到的物体放入微波炉中的逻辑。
+    # 移动到放置位置：首先，移动机器人底座到微波炉前的特定位置。
+    # 移动机械臂到微波炉门口：然后，将机械臂移动到微波炉门口的位置，准备放置物体。
+    # 打开夹爪释放物体：通过打开夹爪来释放物体。
+    # 调整底座位置：最后，调整机器人底座的位置，以完成放置过程。
     def place_microwave(self):
         self.base.move_to(*self.BEFORE_MW_BASE_POSE, 'world', False)
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_MICROWAVE)
@@ -284,7 +299,12 @@ class Solution:
         time.sleep(2)
         output_pose = (np.array([-0.3, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
         self.base.move_to(*output_pose, 'robot', True)
-
+    
+    # 这个方法用于关闭微波炉门。
+    # 移动机械臂到标准位置：首先，确保机械臂处于标准移动位置，避免在移动底座时发生碰撞。
+    # 移动底座到关闭门的位置：将底座移动到可以关闭微波炉门的位置。
+    # 执行关闭门的动作：通过机械臂执行一系列动作，推动微波炉门关闭。
+    # 返回标准位置：完成操作后，机械臂移回标准位置，准备执行下一步操作。
     def close_microwave(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_CLOSE_MICROWAVE, 'world', False)
@@ -294,20 +314,28 @@ class Solution:
         self.base.move_to(*output_pose1, 'robot', True)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
-
+    # 将碗放置到低柜
     def place_bowl_lower(self):
+        # 使机械臂先移动到一个预设的标准位置，这个位置通常是安全的起始点或中转点，用来避免在移动过程中的碰撞。
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
+        # 将机器人的底座移动到便于摆放碗的位置，这里的位置是相对于世界坐标系的。
         self.base.move_to(*self.POSE_TO_BOWL, 'world', False)
+        # 调整机械臂到低柜的放置位置，准备将碗放入。
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_LOWER_CABINET)
+        # 进行微调，确保机械臂能够精确放置碗。这个位置是相对于机器人坐标系的，意味着是基于机器人当前位置的相对移动。
         input_pose = (np.array([0.35, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))
         self.base.move_to(*input_pose, 'robot', True)
+        # 打开夹爪，释放碗。同时给夹爪一个向下的力，确保平稳。
         self.gripper.open()
         self.arm.move_end_to_pose(*self.ARM_POSE_PUT_LOWER)
         time.sleep(2)
         output_pose = (np.array([- 0.35, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))
+        # 将机械臂和底座分别移回到初始的或安全的位置，为下一个操作做准备。
         self.base.move_to(*output_pose, 'robot', True)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
+    # 将碗放置到高柜
+    # 此函数的操作与place_bowl_lower非常相似，主要区别在于放置位置的高度不同。
     def place_bowl_upper(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_TO_BOWL,'world', False)
@@ -321,26 +349,43 @@ class Solution:
         self.base.move_to(*output_pose, 'robot', True)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
+    # TODO：利用大模型做实例分割、点云转换、输出物体中心相对世界坐标系下位置的核心函数
     def lookforonce(self, det_th, sam_th):
         with self.image_lock, self.result_lock:
             _rgb = copy.deepcopy(self.camera.get_rgb())
             _depth = copy.deepcopy(self.camera.get_depth())
             _det_result = copy.deepcopy(self._det_result)
             _sam_result = copy.deepcopy(self._sam_result)
-        _bbox = _det_result['bbox'].numpy().astype(int)
-        _mask = _sam_result['mask']
-        if np.any(_mask) is False:
+        _bbox = _det_result['bbox'].numpy().astype(int)  # 检测框
+        _mask = _sam_result['mask'] # TODO：掩码结果，确定是否是一个二值图
+        if np.any(_mask) is False: # 检查分割掩码是否存在。如果掩码完全不存在（即没有找到任何目标物体），则打印提示信息并跳过后续步骤。
             print(f"direction {direction} not Found")
             
         print("det score:", _det_result['score'])
         print("sam score:", _sam_result['score'])
         if _det_result['score'] > det_th and _sam_result['score'] > sam_th:
             print(f"Found the {self._prompt}")
+            # 接下来这段代码主要执行的是将一个物体在图像中的中心点位置转换到世界坐标系下的位置。
+            # 第一步：将深度图转换为点云（depth2cloud）
+            # 这一步使用深度图和相机内参（self.camera.INTRINSIC），将图像中的像素点转换为相机坐标系下的三维点云。点云中的每个点表示相对于相机位置的三维空间点。
+            # depth2cloud(_depth, self.camera.INTRINSIC, organized=True)：这个函数根据给定的深度图和相机的内参矩阵，计算出对应的三维点云。organized=True参数意味着输出的点云保持与输入图像相同的行和列结构，方便后续处理。
+            # [_bbox[0] // 1, _bbox[1] // 1]：从计算得到的点云中，根据目标物体的边界框（BoundingBox，简称BBox），选取中心点的三维坐标。这里的中心点坐标是通过边界框来确定的，用于表示目标物体的大致位置。
             centerpoint = depth2cloud(_depth, self.camera.INTRINSIC, organized=True)[_bbox[0] // 1, _bbox[1] // 1]
+            
+            # 第二步：从相机坐标系转换到基座坐标系（camera2base）
+            # 这一步是将上一步得到的点（在相机坐标系下）转换到机器人基座的坐标系中。这个转换考虑了相机相对于机器人基座的位置和姿态。
+            # camera2base(centerpoint, self.CAMERA_SHIFT, self.arm.end_pose)：此函数接收三个参数：第一个参数是从相机坐标系中得到的点，第二个参数self.CAMERA_SHIFT是相机相对于机器人基座的平移向量，第三个参数self.arm.end_pose是机械臂末端的位置和姿态。这个函数计算得到的是，点在机器人基座坐标系中的位置。
             centerpoint = camera2base(centerpoint, self.CAMERA_SHIFT, self.arm.end_pose)
+            
+            # 第三步：从基座坐标系转换到世界坐标系（armbase2world）
+            # 这一步进一步将上一步得到的基座坐标系下的点转换到世界坐标系中。这主要涉及到机器人底座在世界坐标系中的位置和姿态。
+            # 此函数将基座坐标系下的点转换到世界坐标系下。它需要机器人底座的位置self.base.position和旋转self.base.rotation（即机器人底座在世界坐标系中的位置和姿态）。
             centerpoint = (armbase2world(centerpoint, (self.base.position, self.base.rotation)).squeeze())
+            
+            # 第四步：根据目标物体的边界框在RGB图像中截取目标区域，然后计算这个区域内所有像素的平均RGB颜色值。
             object_rgb = _rgb[_bbox[0] - np.int32(_bbox[2]/4):_bbox[0] + np.int32(_bbox[2]/4), _bbox[1] - np.int32(_bbox[3]/4):_bbox[1] + np.int32(_bbox[3]/4)]
             mean_rgb = (np.mean(np.mean(object_rgb, axis=0), axis=0).astype(int))
+            
             print('-' * 50)
             print('centerpoint is', centerpoint)
             print('object rgb is', mean_rgb)
@@ -423,6 +468,11 @@ if __name__ == '__main__':
     cp = None
     s.base.move_to(*s.GRASP_POSE_1, 'world', False)
     look_num = 0
+    # 循环寻找目标物体
+    # 这个循环通过改变direction值，控制机械臂移动到两个不同的观察位置（OBSERVE_ARM_POSE_1和OBSERVE_ARM_POSE_2），分别对应两个方向。
+    # 在每个观察位置，调用lookforonce方法尝试检测目标物体。这个方法接受两个参数（0.65, 0.65），分别是检测阈值和分割阈值，用于评估检测和分割结果的可信度。
+    # 如果找到符合条件的物体，lookforonce将返回中心点centerpoint和物体平均RGB颜色值object_mean_rgb，否则返回None。
+    # 如果连续三次（look_num > 3）循环都没有找到目标物体，则退出循环，意味着未能找到目标。
     while cp is None:
         for direction in [1, 2]:
             if direction == 1:
@@ -435,7 +485,61 @@ if __name__ == '__main__':
         look_num += 1
         if look_num>3:
             break
+
+    # 对找到的目标进行操作
     if cp is not None:
+        centerpoint, object_mean_rgb = cp    
+        # 计算物体相对于机器人底座的位置。这个计算涉及到从世界坐标系到机器人底座坐标系的转换，确保机械臂能够准确地抓取到物体。
+        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
+
+        # 计算一个新的机械臂位置OBSERVE_ARM_POSE_TOP，用于从上方观察并准备抓取物体。
+        OBSERVE_ARM_POSE_TOP = (np.array([
+                    centerp_car[0]- 0.2975 - 0.05,
+                    centerp_car[1] + 0.17309,
+                    0.018713334665877806,
+                ]), np.array([
+                    -0.13970062182177911,
+                    0.6487791800204252,
+                    0.032918235938941776,
+                    0.7473190092439113,
+                ]))
+        
+        # 移动机械臂到上方观察/抓取位置。
+        s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
+        time.sleep(1)
+
+        # 执行抓取动作。这个方法内部将处理抓取的具体逻辑，包括机械臂的精确移动和夹爪的控制。
+        s.grasp()
+
+        # 把抓取到的物体放置到微波炉中。
+        s.place_microwave()
+    
+    # 关闭微波炉门。
+    s.close_microwave()
+
+    # -----------------------------------------------------------------
+    # 这段代码通过在不同的位置寻找目标物体（碗），并根据颜色将它们分类放置到不同的柜子中，展示了机器人在识别和操控物体方面的能力。
+    # 通过调整观察位置、使用颜色作为分类依据，以及灵活地处理未找到目标物体的情况，这个过程展示了一种基本的自动化任务处理流程。
+    obj_rgb = []
+    for j in range(5):
+        s._prompt = 'bowl'
+        cp = None
+        s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+        look_num = []
+        while cp is None:
+            for direction in [1, 2]:
+                if direction == 1:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+                else:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+                cp = s.lookforonce(0.6, 0.6)
+                if cp is not None:
+                    break
+            look_num.append(1)
+            if len(look_num)>2:
+                break
+        if len(look_num)>2:
+            break
         centerpoint, object_mean_rgb = cp    
         centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
         OBSERVE_ARM_POSE_TOP = (np.array([
@@ -451,55 +555,23 @@ if __name__ == '__main__':
         s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
         time.sleep(1)
         s.grasp()
-        s.place_microwave()
-    s.close_microwave()
 
-    # -----------------------------------------------------------------
+        # 通过计算得到碗的RGB颜色值，存储在obj_rgb列表中。这个颜色值用于后续判断碗应该放置的位置。
+        # 对于找到的第一个碗（j == 0），直接放置到下层柜子中。
+        # 对于之后找到的碗，比较它的颜色与第一个碗的颜色差异（通过abs(sum(obj_rgb[j]-obj_rgb[0]))计算）。
+        # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
+        obj_rgb.append(object_mean_rgb)
+        if j != 0:
+            print("color", abs(sum(obj_rgb[j]-obj_rgb[0])))
+        if j == 0:
+            s.place_bowl_lower()
+        elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
+            s.place_bowl_upper()
+        else:
+            s.place_bowl_lower()
 
-    obj_rgb = []
-    for j in range(5):
-            s._prompt = 'bowl'
-            cp = None
-            s.base.move_to(*s.GRASP_POSE_1, 'world', False)
-            look_num = []
-            while cp is None:
-                for direction in [1, 2]:
-                    if direction == 1:
-                        s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-                    else:
-                        s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                    cp = s.lookforonce(0.6, 0.6)
-                    if cp is not None:
-                        break
-                look_num.append(1)
-                if len(look_num)>2:
-                    break
-            if len(look_num)>2:
-                break
-            centerpoint, object_mean_rgb = cp    
-            centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
-            OBSERVE_ARM_POSE_TOP = (np.array([
-                        centerp_car[0]- 0.2975 - 0.05,
-                        centerp_car[1] + 0.17309,
-                        0.018713334665877806,
-                    ]), np.array([
-                        -0.13970062182177911,
-                        0.6487791800204252,
-                        0.032918235938941776,
-                        0.7473190092439113,
-                    ]))
-            s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
-            time.sleep(1)
-            s.grasp()
-            obj_rgb.append(object_mean_rgb)
-            if j != 0:
-                print("color", abs(sum(obj_rgb[j]-obj_rgb[0])))
-            if j == 0:
-                s.place_bowl_lower()
-            elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
-                s.place_bowl_upper()
-            else:
-                s.place_bowl_lower()
+    # 第二个循环与第一个循环类似，不同之处在于寻找碗的起始位置（由GRASP_POSE_2定义）。这可能意味着机器人将从不同的位置或角度寻找碗，以确保能够找到更多碗。
+    # 在第二个循环中，找到的碗的颜色（存储在obj_rgb_2列表中）会与第一个循环中找到的第一个碗的颜色进行比较，以决定放置的位置。如果第一个循环中没有找到任何碗（obj_rgb列表为空），则使用obj_rgb_2列表中的第一个碗的颜色作为参考。
     obj_rgb_2 = []
     for j in range(5):
         s._prompt = 'bowl'

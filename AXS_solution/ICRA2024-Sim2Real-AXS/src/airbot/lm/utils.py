@@ -103,7 +103,15 @@ def bbox_iou(box_1: np.ndarray, box_2: np.ndarray) -> float:
     iou = intersection_area / union_area
     return iou
 
-
+# depth2cloud函数的目的是将深度图像转换为点云。深度图像是一个二维数组，其中每个元素的值代表相机到对应像素点的距离。
+# 点云是一系列在三维空间中的点，表示场景的几何形状。
+# 这个转换过程需要考虑相机的内参矩阵（intrinsic_mat），它包含了相机的焦距（fx, fy）和光心坐标（cx, cy）等信息。
+# 输入参数
+# depth_im：深度图像，一个二维数组，其中的值表示从相机到物体表面的距离。
+# intrinsic_mat：相机的内参矩阵，一个2x3或3x3的矩阵，包含相机的焦距和光心坐标。
+# organized：一个布尔值，指示输出的点云是否应该保持与输入图像相同的组织结构（即是否是一个二维数组，每个像素对应一个三维空间点）。
+# 输出
+# cloud：生成的点云，根据organized参数，可以是一个三维数组（H x W x 3，每个像素对应一个三维坐标）或一个二维数组（H*W x 3，每行是一个三维坐标）。
 def depth2cloud(depth_im, intrinsic_mat, organized=True):
     """ Generate point cloud using depth image only.
         Input:
@@ -115,14 +123,21 @@ def depth2cloud(depth_im, intrinsic_mat, organized=True):
             cloud: [numpy.ndarray, (H,W,3)/(H*W,3), numpy.float32]
                 generated cloud, (H,W,3) for organized=True, (H*W,3) for organized=False
     """
+    # 获取深度图像尺寸：首先，获取深度图像的高度和宽度。
     height, width = depth_im.shape
+
+    # 提取相机内参：从内参矩阵中提取焦距（fx, fy）和光心坐标（cx, cy）。
     fx, fy, cx, cy = intrinsic_mat[0][0], intrinsic_mat[1][1], intrinsic_mat[0][2], intrinsic_mat[1][2]
     assert (depth_im.shape[0] == height and depth_im.shape[1] == width)
+
+    # 生成像素坐标网格：使用np.meshgrid函数，为深度图像的每个像素生成一个对应的网格坐标（xmap, ymap）。这个网格覆盖了整个图像平面。
     xmap = np.arange(width)
     ymap = np.arange(height)
     xmap, ymap = np.meshgrid(xmap, ymap)
-    points_z = depth_im  # change the unit to metel
-    points_x = (xmap - cx) * points_z / fx
+
+    # 计算三维坐标：
+    points_z = depth_im  # change the unit to metel 直接从深度图像获取，代表每个点的深度值（Z坐标）。
+    points_x = (xmap - cx) * points_z / fx # 通过将像素坐标转换为相机坐标系下的坐标来计算。这个转换考虑了相机的焦距和光心位置，
     points_y = (ymap - cy) * points_z / fy
     cloud = np.stack([points_x, points_y, points_z], axis=-1)
     if not organized:
