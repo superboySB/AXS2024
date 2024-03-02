@@ -23,7 +23,28 @@ from airbot.lm.utils import depth2cloud
 os.environ['LM_CONFIG'] = "/root/Workspace/AXS_baseline/ICRA2024-Sim2Real-AXS/local.yaml"
 os.environ['CKPT_DIR'] = '/root/Workspace/AXS_baseline/ckpt'
 
+import logging
+import time
+# 创建一个logger
+logger = logging.getLogger('bit-linc')
+logger.setLevel(logging.INFO)  # 设置日志级别
 
+# 创建一个handler，用于写入日志文件
+file_handler = logging.FileHandler('/root/Workspace/app.log')
+file_handler.setLevel(logging.INFO)
+
+# 再创建一个handler，用于将日志输出到控制台
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+# 定义handler的输出格式
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# 给logger添加handler
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 class Solution:
 
@@ -208,7 +229,7 @@ class Solution:
                     break
 
         except KeyboardInterrupt:
-            print("Exiting due to user interruption.")
+            logger.info("Exiting due to user interruption.")
         finally:
             cv2.destroyAllWindows()
 
@@ -359,12 +380,12 @@ class Solution:
         _bbox = _det_result['bbox'].numpy().astype(int)  # 检测框
         _mask = _sam_result['mask'] # TODO：掩码结果，确定是否是一个二值图
         if np.any(_mask) is False: # 检查分割掩码是否存在。如果掩码完全不存在（即没有找到任何目标物体），则打印提示信息并跳过后续步骤。
-            print(f"direction {direction} not Found")
+            logger.info(f"direction {direction} not Found")
             
-        print("det score:", _det_result['score'])
-        print("sam score:", _sam_result['score'])
+        logger.info(f"det score: {_det_result['score']}")
+        logger.info(f"sam score: {_sam_result['score']}")
         if _det_result['score'] > det_th and _sam_result['score'] > sam_th:
-            print(f"Found the {self._prompt}")
+            logger.info(f"Found the {self._prompt}")
             # 接下来这段代码主要执行的是将一个物体在图像中的中心点位置转换到世界坐标系下的位置。
             # 第一步：将深度图转换为点云（depth2cloud）
             # 这一步使用深度图和相机内参（self.camera.INTRINSIC），将图像中的像素点转换为相机坐标系下的三维点云。点云中的每个点表示相对于相机位置的三维空间点。
@@ -386,10 +407,10 @@ class Solution:
             object_rgb = _rgb[_bbox[0] - np.int32(_bbox[2]/4):_bbox[0] + np.int32(_bbox[2]/4), _bbox[1] - np.int32(_bbox[3]/4):_bbox[1] + np.int32(_bbox[3]/4)]
             mean_rgb = (np.mean(np.mean(object_rgb, axis=0), axis=0).astype(int))
             
-            print('-' * 50)
-            print('centerpoint is', centerpoint)
-            print('object rgb is', mean_rgb)
-            print('-' * 50)
+            logger.info(f"-----------------------------------------------------")
+            logger.info(f"centerpoint is {centerpoint}")
+            logger.info(f"object rgb is {mean_rgb}")
+            logger.info(f"-----------------------------------------------------")
 
             return centerpoint, mean_rgb
 
@@ -397,6 +418,7 @@ if __name__ == '__main__':
     s = Solution()
 
     # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
+    logger.info("I plan to open the cab")
     s.base.move_to(*s.POSE_OPEN_CAB, 'world', False)
     time.sleep(1)
 
@@ -423,12 +445,14 @@ if __name__ == '__main__':
                     1.0,
                 ]))
 
-    # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）      
+    # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
+    logger.info("Arrived the cap and then i plan to grip the cab")      
     s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
     s.gripper.close()
     time.sleep(5)
     
     # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
+    logger.info("Now i will use 7 steps to open the cab")   
     for i in range(7):
         # 计算当前迭代的角度，单位为弧度。这个角度用于后续计算机械臂的新位置和朝向。每次循环逐步增加打开柜门的角度
         d = 0.1 * (i + 1)  
@@ -445,10 +469,12 @@ if __name__ == '__main__':
         time.sleep(0.5)
     
     # 打开夹爪
+    logger.info("Suppose the cab is opened a little and i will loose the gripper")   
     s.gripper.open()
     time.sleep(3)
 
     # TODO：这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，目的应该是避开已经打开的门
+    logger.info("I will move the arm and base to largely open the cab.")   
     s.arm.move_end_to_pose(np.array([0.3225, 0.00, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
     s.arm.move_end_to_pose(np.array([0.3225, -0.25, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
     s.arm.move_end_to_pose(np.array([0.5615004168820418, -0.2, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
@@ -458,12 +484,14 @@ if __name__ == '__main__':
     # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，避免与环境的其他部分发生碰撞。
     back_pose = (np.array([-0.05, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
     s.base.move_to(*back_pose, 'robot', True)
-
+    
+    logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
     # 机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
     s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
 
     # -----------------------------------------------------------------
     # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
+    logger.info("Now suppose the pose is OK. I plan to find white mug")
     s._prompt = 'white mug'
     cp = None
     s.base.move_to(*s.GRASP_POSE_1, 'world', False)
@@ -562,7 +590,7 @@ if __name__ == '__main__':
         # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
         obj_rgb.append(object_mean_rgb)
         if j != 0:
-            print("color", abs(sum(obj_rgb[j]-obj_rgb[0])))
+            logger.info(f"color: {abs(sum(obj_rgb[j]-obj_rgb[0]))}")
         if j == 0:
             s.place_bowl_lower()
         elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
@@ -623,6 +651,6 @@ if __name__ == '__main__':
     
     # -----------------------------------------------------------------
     # 结束任务：最后，机器人的底座移动到结束位置，标志着任务的完成。
-    print("finish the task")
+    logger.info("finish the task and i will return to the start position")
     s.base.move_to(*s.END_POSE, 'world', False) 
     time.sleep(20)

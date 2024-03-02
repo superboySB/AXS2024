@@ -67,7 +67,7 @@ roslaunch hdl_localization hdl_localization.launch
 
 conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
 
-conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_solution.py
+conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
 ```
 
 
