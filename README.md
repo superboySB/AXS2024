@@ -9,7 +9,7 @@ The simulation stage of the competition has begun. Please submit your client-sid
 ```sh
 git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x scripts/*
 ```
-构建两个containers，一个是omni gibson的，一个是我们方法（基于baseline的），他们会自动拉image。
+构建两个containers，一个是omni gibson的，一个是我们方法（基于baseline的），他们会自动拉image，需要尽可能新的显卡驱动(>535)
 ```sh
 ./scripts/run_omni.sh
 
@@ -19,6 +19,16 @@ git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x 
 ```
 ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)，回头再学习一下。
 
+然后在`omnigibson_solution`里面运行tensorrt推理优化
+```sh
+cd /Workspace/efficientvit
+# Export Encoder
+/usr/src/tensorrt/bin/trtexec --onnx=assets/export_models/sam/onnx/xl1_encoder.onnx --minShapes=input_image:1x3x1024x1024 --optShapes=input_image:4x3x1024x1024 --maxShapes=input_image:4x3x1024x1024 --saveEngine=assets/export_models/sam/tensorrt/xl1_encoder.engine
+# Export Decoder
+/usr/src/tensorrt/bin/trtexec --onnx=assets/export_models/sam/onnx/xl1_decoder.onnx --minShapes=point_coords:1x1x2,point_labels:1x1 --optShapes=point_coords:16x2x2,point_labels:16x2 --maxShapes=point_coords:16x2x2,point_labels:16x2 --fp16 --saveEngine=assets/export_models/sam/tensorrt/xl1_decoder.engine
+# TensorRT Inference
+python deployment/sam/tensorrt/inference.py --model xl1 --encoder_engine assets/export_models/sam/tensorrt/xl1_encoder.engine --decoder_engine assets/export_models/sam/tensorrt/xl1_decoder.engine --mode point
+```
 ### Core (ROS Master)
 
 This part serves as the communication pivot in ROS systems.
