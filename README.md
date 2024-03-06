@@ -13,7 +13,7 @@ git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x 
 ```sh
 ./scripts/run_omni.sh
 
-# docker build -t superboysb/axs2024:v1.0.0 .
+# docker build -t superboysb/axs2024:20240306 .
 # ./scripts/run_baseline.sh
 ./scripts/run_our_solution.sh
 ```
@@ -21,7 +21,7 @@ ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)�
 
 然后在`omnigibson_solution`里面运行tensorrt推理优化
 ```sh
-cd /Workspace/efficientvit
+cd ~/Workspace/efficientvit && conda activate baseline && pip install tensorrt --extra-index-url https://pypi.nvidia.com
 # Export Encoder
 /usr/src/tensorrt/bin/trtexec --onnx=assets/export_models/sam/onnx/xl1_encoder.onnx --minShapes=input_image:1x3x1024x1024 --optShapes=input_image:4x3x1024x1024 --maxShapes=input_image:4x3x1024x1024 --saveEngine=assets/export_models/sam/tensorrt/xl1_encoder.engine
 # Export Decoder
@@ -96,11 +96,11 @@ docker images
 ```
 Then change the name of the image that needs to be submitted：
 ```sh
-docker tag {image_id} superboysb/axs2024:v1.0.0
+docker tag {image_id} superboysb/axs2024:{version}
 ```
 Submit to dockerhub:
 ```sh
-docker push superboysb/axs2024:v1.0.0
+docker push superboysb/axs2024:{version}
 ```
 **Copy files from/to server/client containers**. You may refer to [this page](https://docs.docker.com/engine/reference/commandline/cp/) for copying files between containers and the host.Normally, when you need to update sources in the containers, you should change the source codes in this repo and refer to [this part](https://github.com/AIR-DISCOVER/ICRA2024-Sim2Real-RM#build-an-updated-client-image) to build an updated image. Directly copying files into containers should be used for debugging only.
 

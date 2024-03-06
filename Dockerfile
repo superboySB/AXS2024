@@ -9,6 +9,7 @@ RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/r
     echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/nvidia-ml.list
 RUN apt-get update && \
     apt-get install -y --no-install-recommends locales git tmux gedit vim openmpi-bin openmpi-common libopenmpi-dev libgl1-mesa-glx tensorrt
+RUN cd /usr/src/tensorrt/samples && make -j16
 
 # Yolo-world
 WORKDIR /root/Workspace/

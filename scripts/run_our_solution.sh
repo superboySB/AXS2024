@@ -8,5 +8,5 @@ sudo docker run -itd --name omnigibson_solution --network=host \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=$DISPLAY \
     -v $HOME/Desktop/shared:/shared \
-    superboysb/axs2024:v1.0.0 \
+    superboysb/axs2024:20240306 \
     /bin/bash
