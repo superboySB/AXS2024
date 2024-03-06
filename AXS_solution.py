@@ -36,7 +36,7 @@ logger = logging.getLogger('bit-linc')
 logger.setLevel(logging.INFO)  # 设置日志级别
 
 # 创建一个handler，用于写入日志文件
-file_handler = logging.FileHandler('/root/Workspace/AXS_solution/app.log')
+file_handler = logging.FileHandler('/root/Workspace/AXS_baseline/app.log')
 file_handler.setLevel(logging.INFO)
 
 # 再创建一个handler，用于将日志输出到控制台
@@ -97,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2865699,
+        0.2565699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -108,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2865699,
+        0.2565699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -117,6 +117,7 @@ class Solution:
         0.032918235938941776,
         0.7473190092439113,
     ]))
+
     END_POSE = (np.array([-1.2317611908186263, -0.9177336410440479, -0.2374505629662929]), 
                 np.array([0.006592923324957343, -0.012942241749323641, 0.014944697147015459, 0.9997828203003477]))
 
@@ -282,13 +283,13 @@ class Solution:
                 image_draw = draw_bbox(image_draw, obb2poly(self.bbox[None, ...]).astype(int))
                 image_draw = image_draw.astype(np.uint8)
                 image_show = cv2.cvtColor(image_draw, cv2.COLOR_RGB2BGR)
-                cv2.imshow('RGB', image_show)
+                # cv2.imshow('RGB', image_show)
                 _flag = np.any(self.mask)
                 if _flag == True:
                     cv2.putText(image_show,
                                 f"det score: {self._det_result['score']}, sam score: {self._sam_result['score']}",
                                 (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                cv2.imshow('RGB', image_show)
+                # cv2.imshow('RGB', image_show)
                 
                 # 生成包含毫秒的唯一文件名
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]  # 去掉最后三位以得到毫秒
@@ -356,7 +357,7 @@ class Solution:
         self.arm.move_end_to_pose(grasp_position, grasp_rotation)
         time.sleep(2)
         self.gripper.close()
-        time.sleep(4)
+        time.sleep(6)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
     # 这是一个静态方法，用于可视化抓取过程。它不直接参与机器人的物理操作，而是用于调试和展示抓取策略。
@@ -384,7 +385,7 @@ class Solution:
     # 调整底座位置：最后，调整机器人底座的位置，以完成放置过程。
     def place_microwave(self):
         self.base.move_to(*self.BEFORE_MW_BASE_POSE, 'world', False)
-        time.sleep(5)
+        time.sleep(3)
 
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_MICROWAVE)
         input_pose = (np.array([0.25, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
@@ -402,7 +403,6 @@ class Solution:
     def close_microwave(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_CLOSE_MICROWAVE, 'world', False)
-        time.sleep(5)
 
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE)
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE_END)
@@ -416,7 +416,6 @@ class Solution:
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         # 将机器人的底座移动到便于摆放碗的位置，这里的位置是相对于世界坐标系的。
         self.base.move_to(*self.POSE_TO_BOWL, 'world', False)
-        time.sleep(5)
 
         # 调整机械臂到低柜的放置位置，准备将碗放入。
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_LOWER_CABINET)
@@ -437,7 +436,6 @@ class Solution:
     def place_bowl_upper(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_TO_BOWL,'world', False)
-        time.sleep(5)
 
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_UPPER_CABINET)
         input_pose = (np.array([0.35, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))
@@ -514,8 +512,8 @@ if __name__ == '__main__':
     # 姿态(np.array([0.0, 0.0, 0.0, 1.0]))这里是一个四元数，表示机械臂末端执行器的朝向。
     # 在这个例子中，它被设置为没有旋转（即朝向不变），这意味着末端执行器将保持默认的方向不变。
     ARM_POSE_DOOR_HANDLE = (np.array([
-                    centerp_car[0] - 0.2975 - 0.01,
-                    centerp_car[1] + 0.17309 - 0.01,
+                    centerp_car[0] - 0.2975 -0.009,
+                    centerp_car[1] + 0.17309 -0.009,
                     0.2,  # 夹爪相对起点的末端高度
                 ]), np.array([
                     0.0,
@@ -527,9 +525,8 @@ if __name__ == '__main__':
     # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
     logger.info("Arrived the cap and then i plan to grip the cab")      
     s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
-    time.sleep(2)
     s.gripper.close()
-    time.sleep(5)
+    time.sleep(6)
     
     
     # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
@@ -549,11 +546,10 @@ if __name__ == '__main__':
         s.arm.move_end_to_pose(new_pos, np.array(new_ori))
         time.sleep(0.5)
     
-    time.sleep(3)
     # 打开夹爪
     logger.info("Suppose the cab is opened a little and i will loose the gripper")   
     s.gripper.open()
-    time.sleep(3)
+    time.sleep(5)
 
     # 这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，抓住已经打开了一半的门
     logger.info("I will move the arm and base to largely open the cab.")   
@@ -561,7 +557,6 @@ if __name__ == '__main__':
     s.arm.move_end_to_pose(np.array([0.3225, -0.25, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
     s.arm.move_end_to_pose(np.array([0.5615004168820418, -0.2, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
     s.arm.move_end_to_pose(np.array([0.6015004168820418, -0.15, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
-    time.sleep(4)
     
     # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，向后把门大幅拉出
     s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
@@ -571,7 +566,6 @@ if __name__ == '__main__':
     
     # 机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
     s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
-    time.sleep(3)
     logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
 
     # -----------------------------------------------------------------
@@ -602,24 +596,6 @@ if __name__ == '__main__':
         if look_num>2:
             break
 
-    look_num = 0
-    if cp is None:
-        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
-
-        while cp is None:
-            for direction in [1, 2]:
-                if direction == 1:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-                else:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                time.sleep(3)
-                cp = s.lookforonce(0.65,0.65)
-                if cp is not None:
-                    break
-            look_num += 1
-            if look_num>2:
-                break
-
     # 对找到的目标进行操作
     if cp is not None:
         centerpoint, object_mean_rgb = cp    
@@ -644,123 +620,126 @@ if __name__ == '__main__':
 
         # 执行抓取动作。这个方法内部将处理抓取的具体逻辑，包括机械臂的精确移动和夹爪的控制。
         s.grasp()
-        time.sleep(3)
+        time.sleep(2)
 
         # 把抓取到的物体放置到微波炉中。
+        logger.info("I plan to place_microwave")
         s.place_microwave()
-        time.sleep(5)
+        time.sleep(3)
     
     # 关闭微波炉门。
+    logger.info("I plan to close_microwave")
     s.close_microwave()
-    time.sleep(3)
+    time.sleep(6)
 
     # -----------------------------------------------------------------
+    # TODO: 任务二的时间不太够
     # 这段代码通过在不同的位置寻找目标物体（碗），并根据颜色将它们分类放置到不同的柜子中，展示了机器人在识别和操控物体方面的能力。
     # 通过调整观察位置、使用颜色作为分类依据，以及灵活地处理未找到目标物体的情况，这个过程展示了一种基本的自动化任务处理流程。
-    obj_rgb = []
-    s.detector.set_classes(["bowl","cup"])
-    for j in range(5):
-        s._prompt = 'bowl'
-        cp = None
-        s.base.move_to(*s.GRASP_POSE_1, 'world', False)
-        look_num = []
-        while cp is None:
-            for direction in [1, 2]:
-                if direction == 1:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-                else:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                cp = s.lookforonce(0.6, 0.6)
-                if cp is not None:
-                    break
-            look_num.append(1)
-            if len(look_num)>2:
-                break
-        if len(look_num)>2:
-            break
-        centerpoint, object_mean_rgb = cp    
-        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
-        OBSERVE_ARM_POSE_TOP = (np.array([
-                    centerp_car[0]- 0.2975 - 0.05,
-                    centerp_car[1] + 0.17309,
-                    0.018713334665877806,
-                ]), np.array([
-                    -0.13970062182177911,
-                    0.6487791800204252,
-                    0.032918235938941776,
-                    0.7473190092439113,
-                ]))
-        s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
-        time.sleep(1)
-        s.grasp()
+    # obj_rgb = []
+    # s.detector.set_classes(["colorful bowl"])
+    # for j in range(5):
+    #     s._prompt = 'bowl'
+    #     cp = None
+    #     s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+    #     look_num = []
+    #     while cp is None:
+    #         for direction in [1, 2]:
+    #             if direction == 1:
+    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+    #             else:
+    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+    #             cp = s.lookforonce(0.6, 0.6)
+    #             if cp is not None:
+    #                 break
+    #         look_num.append(1)
+    #         if len(look_num)>2:
+    #             break
+    #     if len(look_num)>2:
+    #         break
+    #     centerpoint, object_mean_rgb = cp    
+    #     centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
+    #     OBSERVE_ARM_POSE_TOP = (np.array([
+    #                 centerp_car[0]- 0.2975 - 0.05,
+    #                 centerp_car[1] + 0.17309,
+    #                 0.018713334665877806,
+    #             ]), np.array([
+    #                 -0.13970062182177911,
+    #                 0.6487791800204252,
+    #                 0.032918235938941776,
+    #                 0.7473190092439113,
+    #             ]))
+    #     s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
+    #     time.sleep(1)
+    #     s.grasp()
 
-        # 通过计算得到碗的RGB颜色值，存储在obj_rgb列表中。这个颜色值用于后续判断碗应该放置的位置。
-        # 对于找到的第一个碗（j == 0），直接放置到下层柜子中。
-        # 对于之后找到的碗，比较它的颜色与第一个碗的颜色差异（通过abs(sum(obj_rgb[j]-obj_rgb[0]))计算）。
-        # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
-        obj_rgb.append(object_mean_rgb)
-        if j != 0:
-            logger.info(f"color: {abs(sum(obj_rgb[j]-obj_rgb[0]))}")
-        if j == 0:
-            s.place_bowl_lower()
-        elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
-            s.place_bowl_upper()
-        else:
-            s.place_bowl_lower()
+    #     # 通过计算得到碗的RGB颜色值，存储在obj_rgb列表中。这个颜色值用于后续判断碗应该放置的位置。
+    #     # 对于找到的第一个碗（j == 0），直接放置到下层柜子中。
+    #     # 对于之后找到的碗，比较它的颜色与第一个碗的颜色差异（通过abs(sum(obj_rgb[j]-obj_rgb[0]))计算）。
+    #     # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
+    #     obj_rgb.append(object_mean_rgb)
+    #     if j != 0:
+    #         logger.info(f"color: {abs(sum(obj_rgb[j]-obj_rgb[0]))}")
+    #     if j == 0:
+    #         s.place_bowl_lower()
+    #     elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
+    #         s.place_bowl_upper()
+    #     else:
+    #         s.place_bowl_lower()
 
     # 第二个循环与第一个循环类似，不同之处在于寻找碗的起始位置（由GRASP_POSE_2定义）。这可能意味着机器人将从不同的位置或角度寻找碗，以确保能够找到更多碗。
     # 在第二个循环中，找到的碗的颜色（存储在obj_rgb_2列表中）会与第一个循环中找到的第一个碗的颜色进行比较，以决定放置的位置。如果第一个循环中没有找到任何碗（obj_rgb列表为空），则使用obj_rgb_2列表中的第一个碗的颜色作为参考。
-    obj_rgb_2 = []
-    for j in range(5):
-        s._prompt = 'bowl'
-        cp = None
-        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
-        look_num = []
-        while cp is None:
-            for direction in [1, 2]:
-                if direction == 1:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-                else:
-                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                cp = s.lookforonce(0.6, 0.6)
-                if cp is not None:
-                    break
-                look_num.append(1)
-            if len(look_num)>2:
-                break
-        if len(look_num)>2:
-            break
-        centerpoint, object_mean_rgb = cp    
-        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
-        OBSERVE_ARM_POSE_TOP = (np.array([
-                    centerp_car[0]- 0.2975 - 0.05,
-                    centerp_car[1] + 0.17309,
-                    0.018713334665877806,
-                ]), np.array([
-                    -0.13970062182177911,
-                    0.6487791800204252,
-                    0.032918235938941776,
-                    0.7473190092439113,
-                ]))
-        s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
-        time.sleep(1)
-        s.grasp()
-        obj_rgb_2.append(object_mean_rgb)
-        if len(obj_rgb) != 0:
-            if abs(sum(obj_rgb_2[j]-obj_rgb[0]))>30:
-                s.place_bowl_upper()
-            else:
-                s.place_bowl_lower()
-        else:
-            if j == 0:
-                s.place_bowl_lower()
-            elif abs(sum(obj_rgb_2[j]-obj_rgb_2[0]))>30:
-                s.place_bowl_upper()
-            else:
-                s.place_bowl_lower()
+    # obj_rgb_2 = []
+    # for j in range(5):
+    #     s._prompt = 'bowl'
+    #     cp = None
+    #     s.base.move_to(*s.GRASP_POSE_2, 'world', False)
+    #     look_num = []
+    #     while cp is None:
+    #         for direction in [1, 2]:
+    #             if direction == 1:
+    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+    #             else:
+    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+    #             cp = s.lookforonce(0.6, 0.6)
+    #             if cp is not None:
+    #                 break
+    #             look_num.append(1)
+    #         if len(look_num)>2:
+    #             break
+    #     if len(look_num)>2:
+    #         break
+    #     centerpoint, object_mean_rgb = cp    
+    #     centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
+    #     OBSERVE_ARM_POSE_TOP = (np.array([
+    #                 centerp_car[0]- 0.2975 - 0.05,
+    #                 centerp_car[1] + 0.17309,
+    #                 0.018713334665877806,
+    #             ]), np.array([
+    #                 -0.13970062182177911,
+    #                 0.6487791800204252,
+    #                 0.032918235938941776,
+    #                 0.7473190092439113,
+    #             ]))
+    #     s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
+    #     time.sleep(1)
+    #     s.grasp()
+    #     obj_rgb_2.append(object_mean_rgb)
+    #     if len(obj_rgb) != 0:
+    #         if abs(sum(obj_rgb_2[j]-obj_rgb[0]))>30:
+    #             s.place_bowl_upper()
+    #         else:
+    #             s.place_bowl_lower()
+    #     else:
+    #         if j == 0:
+    #             s.place_bowl_lower()
+    #         elif abs(sum(obj_rgb_2[j]-obj_rgb_2[0]))>30:
+    #             s.place_bowl_upper()
+    #         else:
+    #             s.place_bowl_lower()
     
     # -----------------------------------------------------------------
     # 结束任务：最后，机器人的底座移动到结束位置，标志着任务的完成。
     logger.info("finish the task and i will return to the start position")
     s.base.move_to(*s.END_POSE, 'world', False) 
-    time.sleep(20)
+    time.sleep(3)

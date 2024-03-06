@@ -8,7 +8,7 @@ RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/r
     echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/cuda.list && \
     echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/nvidia-ml.list
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends locales git tmux gedit vim openmpi-bin openmpi-common libopenmpi-dev libgl1-mesa-glx tensorrt
+    apt-get install -y --no-install-recommends locales git tmux gedit vim openmpi-bin openmpi-common libopenmpi-dev libgl1-mesa-glx tensorrt psmisc
 RUN cd /usr/src/tensorrt/samples && make -j16
 
 # Yolo-world
@@ -36,4 +36,4 @@ RUN cd /root/Workspace/efficientvit && mkdir -p assets/export_models/sam/tensorr
     /root/miniconda3/bin/conda run -n baseline python deployment/sam/onnx/export_encoder.py --model xl1 --weight_url assets/checkpoints/sam/xl1.pt --output assets/export_models/sam/onnx/xl1_encoder.onnx && \ 
     /root/miniconda3/bin/conda run -n baseline python deployment/sam/onnx/export_decoder.py --model xl1 --weight_url assets/checkpoints/sam/xl1.pt --output assets/export_models/sam/onnx/xl1_decoder.onnx --return-single-mask
 
-COPY AXS_solution /root/Workspace/AXS_solution
+COPY AXS_solution /root/Workspace/AXS_baseline/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_solution.py
