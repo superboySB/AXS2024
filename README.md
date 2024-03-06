@@ -19,16 +19,6 @@ git clone https://github.com/superboySB/AXS2024 && cd AXS2024 && sudo chmod a+x 
 ```
 ROS相关的话题可以先参考[官方教程](docs/sim2real-install-guide.md)，回头再学习一下。
 
-然后在`omnigibson_solution`里面运行tensorrt推理优化
-```sh
-cd ~/Workspace/efficientvit && conda activate baseline && pip install tensorrt --extra-index-url https://pypi.nvidia.com
-# Export Encoder
-/usr/src/tensorrt/bin/trtexec --onnx=assets/export_models/sam/onnx/xl1_encoder.onnx --minShapes=input_image:1x3x1024x1024 --optShapes=input_image:4x3x1024x1024 --maxShapes=input_image:4x3x1024x1024 --saveEngine=assets/export_models/sam/tensorrt/xl1_encoder.engine
-# Export Decoder
-/usr/src/tensorrt/bin/trtexec --onnx=assets/export_models/sam/onnx/xl1_decoder.onnx --minShapes=point_coords:1x1x2,point_labels:1x1 --optShapes=point_coords:16x2x2,point_labels:16x2 --maxShapes=point_coords:16x2x2,point_labels:16x2 --fp16 --saveEngine=assets/export_models/sam/tensorrt/xl1_decoder.engine
-# TensorRT Inference
-python deployment/sam/tensorrt/inference.py --model xl1 --encoder_engine assets/export_models/sam/tensorrt/xl1_encoder.engine --decoder_engine assets/export_models/sam/tensorrt/xl1_decoder.engine --mode point
-```
 ### Core (ROS Master)
 
 This part serves as the communication pivot in ROS systems.
@@ -71,13 +61,13 @@ python /root/OmniGibson-Airbot/teleop_twist_keyboard_AXS.py
 ## 运行自研算法
 进入算法对应另一个containers，在保证`DISPLAY`正常的情况下在多个consle依次启动`hdl localization`节点、`base control`节点和`main solution service`节点
 ```sh
-cd ~/Workspace
+cd ~/Workspace/AXS_solution
 
 roslaunch hdl_localization hdl_localization.launch
 
 conda activate baseline && python /root/robot_tools/examples/ros_base_control.py
 
-conda activate baseline && python /root/Workspace/AXS_solution/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_baseline.py
+conda activate baseline && python /root/Workspace/AXS_solution/solution.py
 ```
 
 

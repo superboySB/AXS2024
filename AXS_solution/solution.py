@@ -7,7 +7,7 @@ import os
 import numpy as np
 import copy
 from airbot.backend.utils.utils import camera2base, armbase2world
-from airbot.lm import Detector, Segmentor
+
 from airbot.grasp.graspmodel import GraspPredictor
 from PIL import Image
 import time
@@ -17,6 +17,12 @@ from airbot.example.utils.vis_depth import vis_image_and_depth
 from scipy.spatial.transform import Rotation
 from threading import Thread, Lock
 import math
+import torch
+import yaml
+import sys
+import shutil
+from typing import Any,Union,List
+from datetime import datetime
 
 from airbot.lm.utils import depth2cloud
 
@@ -30,7 +36,7 @@ logger = logging.getLogger('bit-linc')
 logger.setLevel(logging.INFO)  # 设置日志级别
 
 # 创建一个handler，用于写入日志文件
-file_handler = logging.FileHandler('/root/Workspace/app.log')
+file_handler = logging.FileHandler('/root/Workspace/AXS_solution/app.log')
 file_handler.setLevel(logging.INFO)
 
 # 再创建一个handler，用于将日志输出到控制台
@@ -91,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2565699,
+        0.2865699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -102,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2565699,
+        0.2865699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -124,9 +130,24 @@ class Solution:
 
         self.camera = Camera(backend='ros')
 
-        self.detector = Detector(model='grounding-dino')
+        # self.detector = Detector(model='grounding-dino')
         # self.detector = Detector(model='yolo-v7')
-        self.segmentor = Segmentor(model='segment-anything')
+        # self.detector = Detector(model='yolo-world')
+        from ultralytics import YOLO
+        self.detector = YOLO("/root/Workspace/YOLOv8-TensorRT/yolov8l-world.pt")
+        self.detector.set_classes(["brown cab"])
+
+        # self.segmentor = SegmentAnything(model='segment-anything')
+        sys.path.append("/root/Workspace/efficientvit/")
+        from efficientvit.models.efficientvit.sam import EfficientViTSamPredictor
+        from efficientvit.sam_model_zoo import create_sam_model
+
+        efficientvit_sam = create_sam_model("xl1", True, "/root/Workspace/efficientvit/assets/checkpoints/sam/xl1.pt")
+        efficientvit_sam = efficientvit_sam.cuda(0).eval()
+        self.segmentor = EfficientViTSamPredictor(efficientvit_sam)
+
+
+        # TODO: cuda error
         self.grasper = GraspPredictor(model='graspnet')
 
         self.image_lock = Lock()
@@ -199,9 +220,45 @@ class Solution:
         with self.image_lock, self.result_lock:
             self._image = copy.deepcopy(self.camera.get_rgb())
             self._depth = copy.deepcopy(self.camera.get_depth())
-            self._det_result = self.detector.infer(self._image, self._prompt)
-            self._bbox = self._det_result['bbox'].numpy().astype(int)
-            self._sam_result = self.segmentor.infer(self._image, self._bbox[None, :2][:, [1, 0]])
+
+            # self._det_result = self.detector.infer(self._image, self._prompt)
+            raw_det_result = self.detector.predict(self._image)
+            # 简单的NMS
+            if raw_det_result[0].boxes.data.shape[0] > 0:
+                max_value_index = torch.argmax(raw_det_result[0].boxes.conf)
+                x1,y1,x2,y2 = raw_det_result[0].boxes.xyxy[max_value_index].cpu().numpy()
+                self._det_result = {
+                    "bbox": torch.tensor([(y1+y2)/2, (x1+x2)/2, y2-y1, x2-x1]),  
+                    "score": raw_det_result[0].boxes.conf[max_value_index], 
+                }
+            else:
+                self._det_result = {"bbox": torch.tensor(np.array([0., 0., 0., 0.])), "score": 0.}
+
+            self._bbox = self._det_result['bbox'].cpu().numpy().astype(int)
+            self.segmentor.set_image(self._image)
+            width = self._image.shape[1]
+            height = self._image.shape[0]
+            gapped_bbox = np.zeros(4)
+            gapped_bbox[0] = np.maximum(0, self._bbox[1]- self._bbox[3]/2- 15)
+            gapped_bbox[1] = np.maximum(0, self._bbox[0]- self._bbox[2]/2 - 15)
+            gapped_bbox[2] = np.minimum(width, self._bbox[1] + self._bbox[3]/2 + 15)
+            gapped_bbox[3] = np.minimum(height, self._bbox[0] + self._bbox[2]/2 + 15)
+            masks, scores, _ = self.segmentor.predict(
+                point_coords= np.array([[self._bbox[1],self._bbox[0]]]),
+                point_labels=np.array([1]),
+                box = gapped_bbox,
+                multimask_output=False,
+            )
+            
+            max_idx = np.argmax(scores)
+
+            self._sam_result =  {
+                "mask": masks[max_idx].astype(bool),  # np.ndarray
+                "score": scores[max_idx],  # str
+            }
+
+            # self._sam_result = self.segmentor.infer(self._image, self._bbox[None, :2][:, [1, 0]])
+
             self._mask = self._sam_result['mask']
 
     def update(self):
@@ -210,8 +267,15 @@ class Solution:
             time.sleep(0.005)
 
     def vis(self):
+        # 检查目标目录
+        log_dir = "log"
+        if os.path.exists(log_dir):
+            # 清空目录
+            shutil.rmtree(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
+        
         try:
-            # Infinite loop to display images
+            # 无限循环以显示图像
             while self.running:
                 image_draw = self.image
                 image_draw = image_draw * (self.mask[:, :, None].astype(np.uint8) * 0.75 + 0.25)
@@ -225,6 +289,13 @@ class Solution:
                                 f"det score: {self._det_result['score']}, sam score: {self._sam_result['score']}",
                                 (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                 cv2.imshow('RGB', image_show)
+                
+                # 生成包含毫秒的唯一文件名
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]  # 去掉最后三位以得到毫秒
+                save_path = os.path.join(log_dir, f"{timestamp}.png")
+                # 保存图像
+                cv2.imwrite(save_path, image_show)
+                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
@@ -313,6 +384,8 @@ class Solution:
     # 调整底座位置：最后，调整机器人底座的位置，以完成放置过程。
     def place_microwave(self):
         self.base.move_to(*self.BEFORE_MW_BASE_POSE, 'world', False)
+        time.sleep(5)
+
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_MICROWAVE)
         input_pose = (np.array([0.25, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
         self.base.move_to(*input_pose, 'robot', True)
@@ -329,6 +402,8 @@ class Solution:
     def close_microwave(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_CLOSE_MICROWAVE, 'world', False)
+        time.sleep(5)
+
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE)
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE_END)
         output_pose1 = (np.array([-0.25, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
@@ -341,6 +416,8 @@ class Solution:
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         # 将机器人的底座移动到便于摆放碗的位置，这里的位置是相对于世界坐标系的。
         self.base.move_to(*self.POSE_TO_BOWL, 'world', False)
+        time.sleep(5)
+
         # 调整机械臂到低柜的放置位置，准备将碗放入。
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_LOWER_CABINET)
         # 进行微调，确保机械臂能够精确放置碗。这个位置是相对于机器人坐标系的，意味着是基于机器人当前位置的相对移动。
@@ -360,6 +437,8 @@ class Solution:
     def place_bowl_upper(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_TO_BOWL,'world', False)
+        time.sleep(5)
+
         self.arm.move_end_to_pose(*self.ARM_POSE_TO_UPPER_CABINET)
         input_pose = (np.array([0.35, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))
         self.base.move_to(*input_pose, 'robot', True)
@@ -377,7 +456,7 @@ class Solution:
             _depth = copy.deepcopy(self.camera.get_depth())
             _det_result = copy.deepcopy(self._det_result)
             _sam_result = copy.deepcopy(self._sam_result)
-        _bbox = _det_result['bbox'].numpy().astype(int)  # 检测框
+        _bbox = _det_result['bbox'].cpu().numpy().astype(int)  # 检测框
         _mask = _sam_result['mask'] # TODO：掩码结果，确定是否是一个二值图
         if np.any(_mask) is False: # 检查分割掩码是否存在。如果掩码完全不存在（即没有找到任何目标物体），则打印提示信息并跳过后续步骤。
             logger.info(f"direction {direction} not Found")
@@ -420,7 +499,7 @@ if __name__ == '__main__':
     # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
     logger.info("I plan to open the cab")
     s.base.move_to(*s.POSE_OPEN_CAB, 'world', False)
-    time.sleep(1)
+    time.sleep(3)
 
     # 表示柜门把手在世界坐标系中的位置。这个位置是预先测量或通过某种方式计算得出的。
     POS_DOOR_HANDLE = np.array([0.30353946626186371, 1.230472918510437, 0])
@@ -448,8 +527,10 @@ if __name__ == '__main__':
     # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
     logger.info("Arrived the cap and then i plan to grip the cab")      
     s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
+    time.sleep(2)
     s.gripper.close()
     time.sleep(5)
+    
     
     # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
     logger.info("Now i will use 7 steps to open the cab")   
@@ -468,33 +549,39 @@ if __name__ == '__main__':
         s.arm.move_end_to_pose(new_pos, np.array(new_ori))
         time.sleep(0.5)
     
+    time.sleep(3)
     # 打开夹爪
     logger.info("Suppose the cab is opened a little and i will loose the gripper")   
     s.gripper.open()
     time.sleep(3)
 
-    # TODO：这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，目的应该是避开已经打开的门
+    # 这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，抓住已经打开了一半的门
     logger.info("I will move the arm and base to largely open the cab.")   
     s.arm.move_end_to_pose(np.array([0.3225, 0.00, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
     s.arm.move_end_to_pose(np.array([0.3225, -0.25, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
     s.arm.move_end_to_pose(np.array([0.5615004168820418, -0.2, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
     s.arm.move_end_to_pose(np.array([0.6015004168820418, -0.15, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
-    s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
+    time.sleep(4)
     
-    # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，避免与环境的其他部分发生碰撞。
+    # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，向后把门大幅拉出
+    s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
     back_pose = (np.array([-0.05, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
     s.base.move_to(*back_pose, 'robot', True)
+    time.sleep(6)
     
-    logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
     # 机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
     s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
+    time.sleep(3)
+    logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
 
     # -----------------------------------------------------------------
     # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
     logger.info("Now suppose the pose is OK. I plan to find white mug")
-    s._prompt = 'white mug'
+    s._prompt = 'A white cup with a handle'
+    s.detector.set_classes(["A white cup with a handle"])
     cp = None
-    s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+    s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: nav的最短路写的有点蠢
+    time.sleep(3)
     look_num = 0
     # 循环寻找目标物体
     # 这个循环通过改变direction值，控制机械臂移动到两个不同的观察位置（OBSERVE_ARM_POSE_1和OBSERVE_ARM_POSE_2），分别对应两个方向。
@@ -507,12 +594,31 @@ if __name__ == '__main__':
                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
             else:
                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+            time.sleep(3)
             cp = s.lookforonce(0.65,0.65)
             if cp is not None:
                 break
         look_num += 1
-        if look_num>3:
+        if look_num>2:
             break
+
+    look_num = 0
+    if cp is None:
+        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
+
+        while cp is None:
+            for direction in [1, 2]:
+                if direction == 1:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+                else:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+                time.sleep(3)
+                cp = s.lookforonce(0.65,0.65)
+                if cp is not None:
+                    break
+            look_num += 1
+            if look_num>2:
+                break
 
     # 对找到的目标进行操作
     if cp is not None:
@@ -538,17 +644,21 @@ if __name__ == '__main__':
 
         # 执行抓取动作。这个方法内部将处理抓取的具体逻辑，包括机械臂的精确移动和夹爪的控制。
         s.grasp()
+        time.sleep(3)
 
         # 把抓取到的物体放置到微波炉中。
         s.place_microwave()
+        time.sleep(5)
     
     # 关闭微波炉门。
     s.close_microwave()
+    time.sleep(3)
 
     # -----------------------------------------------------------------
     # 这段代码通过在不同的位置寻找目标物体（碗），并根据颜色将它们分类放置到不同的柜子中，展示了机器人在识别和操控物体方面的能力。
     # 通过调整观察位置、使用颜色作为分类依据，以及灵活地处理未找到目标物体的情况，这个过程展示了一种基本的自动化任务处理流程。
     obj_rgb = []
+    s.detector.set_classes(["bowl","cup"])
     for j in range(5):
         s._prompt = 'bowl'
         cp = None

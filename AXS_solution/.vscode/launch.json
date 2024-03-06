@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "dafault",
+            "request": "launch",
+            "type": "python",
+            "python": "/root/miniconda3/envs/baseline/bin/python",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "DISPLAY": ":1"
+            }
+        },
+    ]
+}
