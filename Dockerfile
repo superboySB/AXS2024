@@ -4,6 +4,7 @@ FROM jieyitsinghuawx/icra2024-sim2real-axs-baseline:v1.0.0
 LABEL maintainer="Zipeng Dai <daizipeng@bit.edu.cn>"
 
 # TensorRT
+WORKDIR /root/
 RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
     echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/cuda.list && \
     echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/nvidia-ml.list
@@ -36,4 +37,4 @@ RUN cd /root/Workspace/efficientvit && mkdir -p assets/export_models/sam/tensorr
     /root/miniconda3/bin/conda run -n baseline python deployment/sam/onnx/export_encoder.py --model xl1 --weight_url assets/checkpoints/sam/xl1.pt --output assets/export_models/sam/onnx/xl1_encoder.onnx && \ 
     /root/miniconda3/bin/conda run -n baseline python deployment/sam/onnx/export_decoder.py --model xl1 --weight_url assets/checkpoints/sam/xl1.pt --output assets/export_models/sam/onnx/xl1_decoder.onnx --return-single-mask
 
-COPY AXS_solution /root/Workspace/AXS_baseline/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_solution.py
+COPY AXS_solution.py /root/Workspace/AXS_baseline/ICRA2024-Sim2Real-AXS/src/airbot/example/AXS_solution.py
