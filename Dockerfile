@@ -17,7 +17,7 @@ RUN git clone https://github.com/superboySB/YOLOv8-TensorRT.git
 RUN cd YOLOv8-TensorRT && \
     /root/miniconda3/bin/conda run -n baseline pip install --upgrade pip && \
     /root/miniconda3/bin/conda run -n baseline pip install -r requirements.txt && \
-    /root/miniconda3/bin/conda run -n baseline pip install opencv-python==4.8.0.74 opencv-contrib-python==4.8.0.74 && \
+    /root/miniconda3/bin/conda run -n baseline pip install opencv-python==4.8.0.74 opencv-contrib-python==4.8.0.74 tensorrt && \
     wget https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8l-world.pt
 RUN cd YOLOv8-TensorRT && /root/miniconda3/bin/conda run -n baseline python test_yoloworld.py
 

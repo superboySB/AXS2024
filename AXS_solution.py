@@ -97,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2565699,
+        0.2865699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -108,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2565699,
+        0.2865699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -355,9 +355,9 @@ class Solution:
         # 执行抓取动作：首先，机械臂移动到计算出的抓取位置和旋转角度。等待2秒后，夹爪闭合，尝试抓取目标物体。
         # 之后，再次等待4秒，确保夹爪稳固抓取后，将机械臂移动回标准移动位置。
         self.arm.move_end_to_pose(grasp_position, grasp_rotation)
-        time.sleep(2)
+        time.sleep(4)
         self.gripper.close()
-        time.sleep(6)
+        time.sleep(4)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
     # 这是一个静态方法，用于可视化抓取过程。它不直接参与机器人的物理操作，而是用于调试和展示抓取策略。
@@ -472,7 +472,8 @@ class Solution:
             
             # 第二步：从相机坐标系转换到基座坐标系（camera2base）
             # 这一步是将上一步得到的点（在相机坐标系下）转换到机器人基座的坐标系中。这个转换考虑了相机相对于机器人基座的位置和姿态。
-            # camera2base(centerpoint, self.CAMERA_SHIFT, self.arm.end_pose)：此函数接收三个参数：第一个参数是从相机坐标系中得到的点，第二个参数self.CAMERA_SHIFT是相机相对于机器人基座的平移向量，第三个参数self.arm.end_pose是机械臂末端的位置和姿态。这个函数计算得到的是，点在机器人基座坐标系中的位置。
+            # camera2base(centerpoint, self.CAMERA_SHIFT, self.arm.end_pose)：此函数接收三个参数：第一个参数是从相机坐标系中得到的点，第二个参数self.CAMERA_SHIFT是相机相对于机器人基座的平移向量，第三个参数self.arm.end_pose是机械臂末端的位置和姿态。
+            # 这个函数计算得到的是，点在机器人基座坐标系中的位置。
             centerpoint = camera2base(centerpoint, self.CAMERA_SHIFT, self.arm.end_pose)
             
             # 第三步：从基座坐标系转换到世界坐标系（armbase2world）
@@ -496,7 +497,7 @@ if __name__ == '__main__':
 
     # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
     logger.info("I plan to open the cab")
-    s.base.move_to(*s.POSE_OPEN_CAB, 'world', False)
+    s.base.move_to(*s.POSE_OPEN_CAB, 'world', False) 
     time.sleep(3)
 
     # 表示柜门把手在世界坐标系中的位置。这个位置是预先测量或通过某种方式计算得出的。
@@ -512,8 +513,8 @@ if __name__ == '__main__':
     # 姿态(np.array([0.0, 0.0, 0.0, 1.0]))这里是一个四元数，表示机械臂末端执行器的朝向。
     # 在这个例子中，它被设置为没有旋转（即朝向不变），这意味着末端执行器将保持默认的方向不变。
     ARM_POSE_DOOR_HANDLE = (np.array([
-                    centerp_car[0] - 0.2975 -0.009,
-                    centerp_car[1] + 0.17309 -0.009,
+                    centerp_car[0] - 0.2975 -0.01,
+                    centerp_car[1] + 0.17309 -0.01,
                     0.2,  # 夹爪相对起点的末端高度
                 ]), np.array([
                     0.0,
@@ -525,8 +526,9 @@ if __name__ == '__main__':
     # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
     logger.info("Arrived the cap and then i plan to grip the cab")      
     s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
+    time.sleep(2)
     s.gripper.close()
-    time.sleep(6)
+    time.sleep(5)
     
     
     # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
@@ -559,12 +561,10 @@ if __name__ == '__main__':
     s.arm.move_end_to_pose(np.array([0.6015004168820418, -0.15, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
     
     # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，向后把门大幅拉出
+    # 然后机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
     s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
     back_pose = (np.array([-0.05, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
     s.base.move_to(*back_pose, 'robot', True)
-    time.sleep(6)
-    
-    # 机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
     s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
     logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
 
@@ -573,9 +573,9 @@ if __name__ == '__main__':
     logger.info("Now suppose the pose is OK. I plan to find white mug")
     s._prompt = 'A white cup with a handle'
     s.detector.set_classes(["A white cup with a handle"])
+    s.base.move_to(*s.GRASP_POSE_2, 'world', False)  # TODO: nav的最短路写的有点蠢,多试试看
+    s.base.move_to(*s.GRASP_POSE_1, 'world', False)
     cp = None
-    s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: nav的最短路写的有点蠢
-    time.sleep(3)
     look_num = 0
     # 循环寻找目标物体
     # 这个循环通过改变direction值，控制机械臂移动到两个不同的观察位置（OBSERVE_ARM_POSE_1和OBSERVE_ARM_POSE_2），分别对应两个方向。
@@ -583,6 +583,7 @@ if __name__ == '__main__':
     # 如果找到符合条件的物体，lookforonce将返回中心点centerpoint和物体平均RGB颜色值object_mean_rgb，否则返回None。
     # 如果连续三次（look_num > 3）循环都没有找到目标物体，则退出循环，意味着未能找到目标。
     while cp is None:
+        
         for direction in [1, 2]:
             if direction == 1:
                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
@@ -602,7 +603,9 @@ if __name__ == '__main__':
         # 计算物体相对于机器人底座的位置。这个计算涉及到从世界坐标系到机器人底座坐标系的转换，确保机械臂能够准确地抓取到物体。
         centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
 
-        # 计算一个新的机械臂位置OBSERVE_ARM_POSE_TOP，用于从上方观察并准备抓取物体。
+        # 对齐坐标系，计算一个新的机械臂位置OBSERVE_ARM_POSE_TOP，用于从上方观察并准备抓取物体。
+        # 注意arm_base 相对 car_base_link 的 offset是 (0.2975, -0.17309, 0.3488)
+        # TODO: 这里没有用到6-DOF，而是固定了高度和抓取姿态（基本是从正上方抓取）
         OBSERVE_ARM_POSE_TOP = (np.array([
                     centerp_car[0]- 0.2975 - 0.05,
                     centerp_car[1] + 0.17309,
@@ -742,4 +745,4 @@ if __name__ == '__main__':
     # 结束任务：最后，机器人的底座移动到结束位置，标志着任务的完成。
     logger.info("finish the task and i will return to the start position")
     s.base.move_to(*s.END_POSE, 'world', False) 
-    time.sleep(3)
+    time.sleep(120)
