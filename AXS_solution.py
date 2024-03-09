@@ -97,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2865699,
+        0.2765699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -108,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2865699,
+        0.2765699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -322,7 +322,7 @@ class Solution:
     
     # TODO: 抓取（经常失败）
     def grasp(self):
-        method = "2"
+        method = "3"
 
         # 使用with self.image_lock, self.result_lock:获取图像、深度信息、边界框(bbox)和掩码(mask)的副本，以防止在抓取过程中数据被其他线程修改。
         with self.image_lock, self.result_lock:
@@ -344,7 +344,7 @@ class Solution:
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, np.pi / 2], degrees=False).as_quat()
         elif method == "2":
             grasp_position = cloud[ _bbox[0], _bbox[1] - _bbox[3] // 2 + 8][:3]
-            grasp_position[2] = -0.165
+            grasp_position[2] = -0.175
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, 0], degrees=False).as_quat()
         else:
             bbox_mask = self._bbox2mask(_image, _bbox)
@@ -569,7 +569,7 @@ if __name__ == '__main__':
     logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
 
     # -----------------------------------------------------------------
-    # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
+    # TODO： 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
     logger.info("Now suppose the pose is OK. I plan to find white mug")
     s._prompt = 'A white cup with a handle'
     s.detector.set_classes(["A white cup with a handle"])
@@ -639,110 +639,128 @@ if __name__ == '__main__':
     # TODO: 任务二的时间不太够
     # 这段代码通过在不同的位置寻找目标物体（碗），并根据颜色将它们分类放置到不同的柜子中，展示了机器人在识别和操控物体方面的能力。
     # 通过调整观察位置、使用颜色作为分类依据，以及灵活地处理未找到目标物体的情况，这个过程展示了一种基本的自动化任务处理流程。
-    # obj_rgb = []
-    # s.detector.set_classes(["colorful bowl"])
-    # for j in range(5):
-    #     s._prompt = 'bowl'
-    #     cp = None
-    #     s.base.move_to(*s.GRASP_POSE_1, 'world', False)
-    #     look_num = []
-    #     while cp is None:
-    #         for direction in [1, 2]:
-    #             if direction == 1:
-    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-    #             else:
-    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-    #             cp = s.lookforonce(0.6, 0.6)
-    #             if cp is not None:
-    #                 break
-    #         look_num.append(1)
-    #         if len(look_num)>2:
-    #             break
-    #     if len(look_num)>2:
-    #         break
-    #     centerpoint, object_mean_rgb = cp    
-    #     centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
-    #     OBSERVE_ARM_POSE_TOP = (np.array([
-    #                 centerp_car[0]- 0.2975 - 0.05,
-    #                 centerp_car[1] + 0.17309,
-    #                 0.018713334665877806,
-    #             ]), np.array([
-    #                 -0.13970062182177911,
-    #                 0.6487791800204252,
-    #                 0.032918235938941776,
-    #                 0.7473190092439113,
-    #             ]))
-    #     s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
-    #     time.sleep(1)
-    #     s.grasp()
+    logger.info("Now suppose the microware is OK. I plan to find cups")
+    obj_rgb = []
+    combined_labels_for_bowl = [
+        'bowl', 'cup', 'vessel', 'container', 'dish', 'basin', 'receptacle', 'pot', 
+        'ceramicware', 'tableware', 'serveware', 'kitchenware', 'dinnerware', 
+        'dishware', 'crockery', 'mixing bowl', 'salad bowl', 'Top-Down View of Bowl', 
+        'Circular Rimmed Dish', 'Round Tableware Item', 'Open Cylindrical Vessel', 
+        'Flat-Bottomed Serving Ware', 'Circular Kitchenware', 'Round Ceramic Piece', 
+        'Dining Bowl Overhead', 'Open-top Porcelain Bowl', 'Gaming Bowl', 
+        'Ceramic Bowl', 'Electronic Device Beside Dishware', 
+        'Open-top Bowl Near Gaming Accessory', 'Entertainment-Themed Tableware', 
+        'Modern Kitchenware with Tech', 'Interactive Gaming Bowl', 
+        'Tech-Adjacent Porcelainware', 'Digital Lifestyle Ceramic', 
+        'Game Controller and Bowl Set', 'Tech-Influenced Eating Utensil', 
+        'Smart Home Dining Ware', 'Gamers Kitchen Bowl', 'Porcelain Bowl on Techy Surface', 
+        'Augmented Dining Bowl'
+    ]
+    s.detector.set_classes(combined_labels_for_bowl)
+    for j in range(5):
+        s._prompt = 'bowl'
+        cp = None
+        s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+        look_num = []
+        while cp is None:
+            for direction in [1, 2]:
+                if direction == 1:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+                else:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+                cp = s.lookforonce(0.4, 0.6)
+                if cp is not None:
+                    break
+            look_num.append(1)
+            if len(look_num)>2:
+                break
+        if len(look_num)>2:
+            break
+        centerpoint, object_mean_rgb = cp    
+        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
+        OBSERVE_ARM_POSE_TOP = (np.array([
+                    centerp_car[0]- 0.2975 - 0.05,
+                    centerp_car[1] + 0.17309,
+                    0.018713334665877806,
+                ]), np.array([
+                    -0.13970062182177911,
+                    0.6487791800204252,
+                    0.032918235938941776,
+                    0.7473190092439113,
+                ]))
+        s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
+        time.sleep(1)
+        s.grasp()
 
-    #     # 通过计算得到碗的RGB颜色值，存储在obj_rgb列表中。这个颜色值用于后续判断碗应该放置的位置。
-    #     # 对于找到的第一个碗（j == 0），直接放置到下层柜子中。
-    #     # 对于之后找到的碗，比较它的颜色与第一个碗的颜色差异（通过abs(sum(obj_rgb[j]-obj_rgb[0]))计算）。
-    #     # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
-    #     obj_rgb.append(object_mean_rgb)
-    #     if j != 0:
-    #         logger.info(f"color: {abs(sum(obj_rgb[j]-obj_rgb[0]))}")
-    #     if j == 0:
-    #         s.place_bowl_lower()
-    #     elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
-    #         s.place_bowl_upper()
-    #     else:
-    #         s.place_bowl_lower()
+        # 通过计算得到碗的RGB颜色值，存储在obj_rgb列表中。这个颜色值用于后续判断碗应该放置的位置。
+        # 对于找到的第一个碗（j == 0），直接放置到下层柜子中。
+        # 对于之后找到的碗，比较它的颜色与第一个碗的颜色差异（通过abs(sum(obj_rgb[j]-obj_rgb[0]))计算）。
+        # 如果颜色差异大于30，认为是不同类型的碗，应放置到上层柜子中；否则，放置到下层柜子中。
+        obj_rgb.append(object_mean_rgb)
+        if j != 0:
+            logger.info(f"color: {abs(sum(obj_rgb[j]-obj_rgb[0]))}")
+        if j == 0:
+            s.place_bowl_lower()
+        elif abs(sum(obj_rgb[j]-obj_rgb[0]))>30:
+            s.place_bowl_upper()
+        else:
+            s.place_bowl_lower()
 
     # 第二个循环与第一个循环类似，不同之处在于寻找碗的起始位置（由GRASP_POSE_2定义）。这可能意味着机器人将从不同的位置或角度寻找碗，以确保能够找到更多碗。
     # 在第二个循环中，找到的碗的颜色（存储在obj_rgb_2列表中）会与第一个循环中找到的第一个碗的颜色进行比较，以决定放置的位置。如果第一个循环中没有找到任何碗（obj_rgb列表为空），则使用obj_rgb_2列表中的第一个碗的颜色作为参考。
-    # obj_rgb_2 = []
-    # for j in range(5):
-    #     s._prompt = 'bowl'
-    #     cp = None
-    #     s.base.move_to(*s.GRASP_POSE_2, 'world', False)
-    #     look_num = []
-    #     while cp is None:
-    #         for direction in [1, 2]:
-    #             if direction == 1:
-    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
-    #             else:
-    #                 s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-    #             cp = s.lookforonce(0.6, 0.6)
-    #             if cp is not None:
-    #                 break
-    #             look_num.append(1)
-    #         if len(look_num)>2:
-    #             break
-    #     if len(look_num)>2:
-    #         break
-    #     centerpoint, object_mean_rgb = cp    
-    #     centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
-    #     OBSERVE_ARM_POSE_TOP = (np.array([
-    #                 centerp_car[0]- 0.2975 - 0.05,
-    #                 centerp_car[1] + 0.17309,
-    #                 0.018713334665877806,
-    #             ]), np.array([
-    #                 -0.13970062182177911,
-    #                 0.6487791800204252,
-    #                 0.032918235938941776,
-    #                 0.7473190092439113,
-    #             ]))
-    #     s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
-    #     time.sleep(1)
-    #     s.grasp()
-    #     obj_rgb_2.append(object_mean_rgb)
-    #     if len(obj_rgb) != 0:
-    #         if abs(sum(obj_rgb_2[j]-obj_rgb[0]))>30:
-    #             s.place_bowl_upper()
-    #         else:
-    #             s.place_bowl_lower()
-    #     else:
-    #         if j == 0:
-    #             s.place_bowl_lower()
-    #         elif abs(sum(obj_rgb_2[j]-obj_rgb_2[0]))>30:
-    #             s.place_bowl_upper()
-    #         else:
-    #             s.place_bowl_lower()
+    logger.info("I plan to change the base and continue to find cups")
+    obj_rgb_2 = []
+    for j in range(5):
+        s._prompt = 'bowl'
+        cp = None
+        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
+        look_num = []
+        while cp is None:
+            for direction in [1, 2]:
+                if direction == 1:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+                else:
+                    s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+                cp = s.lookforonce(0.4, 0.6)
+                if cp is not None:
+                    break
+                look_num.append(1)
+            if len(look_num)>2:
+                break
+        if len(look_num)>2:
+            break
+        centerpoint, object_mean_rgb = cp    
+        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((centerpoint-s.base.position))
+        OBSERVE_ARM_POSE_TOP = (np.array([
+                    centerp_car[0]- 0.2975 - 0.05,
+                    centerp_car[1] + 0.17309,
+                    0.018713334665877806,
+                ]), np.array([
+                    -0.13970062182177911,
+                    0.6487791800204252,
+                    0.032918235938941776,
+                    0.7473190092439113,
+                ]))
+        s.arm.move_end_to_pose(*OBSERVE_ARM_POSE_TOP)
+        time.sleep(1)
+        s.grasp()
+        obj_rgb_2.append(object_mean_rgb)
+        if len(obj_rgb) != 0:
+            if abs(sum(obj_rgb_2[j]-obj_rgb[0]))>30:
+                s.place_bowl_upper()
+            else:
+                s.place_bowl_lower()
+        else:
+            if j == 0:
+                s.place_bowl_lower()
+            elif abs(sum(obj_rgb_2[j]-obj_rgb_2[0]))>30:
+                s.place_bowl_upper()
+            else:
+                s.place_bowl_lower()
     
     # -----------------------------------------------------------------
     # 结束任务：最后，机器人的底座移动到结束位置，标志着任务的完成。
     logger.info("finish the task and i will return to the start position")
+    s.base.move_to(*s.GRASP_POSE_1, 'world', False)
     s.base.move_to(*s.END_POSE, 'world', False) 
     time.sleep(120)
