@@ -4,7 +4,8 @@ FROM jieyitsinghuawx/icra2024-sim2real-axs-baseline:v1.0.0
 LABEL maintainer="Zipeng Dai <daizipeng@bit.edu.cn>"
 
 # TensorRT
-WORKDIR /root/
+RUN rm /usr/local/cuda && ln -s /usr/local/cuda-12.1 /usr/local/cuda
+RUN /root/miniconda3/bin/conda run -n baseline conda install --force-reinstall pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
     echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/cuda.list && \
     echo "deb http://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64/ /" > /etc/apt/sources.list.d/nvidia-ml.list
@@ -18,8 +19,7 @@ RUN git clone https://github.com/superboySB/YOLOv8-TensorRT.git
 RUN cd YOLOv8-TensorRT && \
     /root/miniconda3/bin/conda run -n baseline pip install --upgrade pip && \
     /root/miniconda3/bin/conda run -n baseline pip install -r requirements.txt && \
-    /root/miniconda3/bin/conda run -n baseline pip install opencv-python==4.8.0.74 opencv-contrib-python==4.8.0.74 tensorrt \
-    pyQt5 PySide2 pydot && \
+    /root/miniconda3/bin/conda run -n baseline pip install opencv-python==4.8.0.74 opencv-contrib-python==4.8.0.74 tensorrt && \
     wget https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8l-world.pt
 RUN cd YOLOv8-TensorRT && /root/miniconda3/bin/conda run -n baseline python test_yoloworld.py
 
@@ -27,7 +27,7 @@ RUN cd YOLOv8-TensorRT && /root/miniconda3/bin/conda run -n baseline python test
 WORKDIR /root/Workspace/
 RUN git clone https://github.com/superboySB/efficientvit.git
 RUN cd efficientvit && \
-    /root/miniconda3/bin/conda run -n baseline conda install -y mpi4py && \
+    /root/miniconda3/bin/conda run -n baseline conda install -y mpi4py qt pyqt&& \
     /root/miniconda3/bin/conda run -n baseline pip install -r requirements.txt && \
     mkdir -p assets/checkpoints/sam && cd assets/checkpoints/sam && \
     wget https://huggingface.co/han-cai/efficientvit-sam/resolve/main/l2.pt && \

@@ -97,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2765699,
+        0.2835699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -108,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2765699,
+        0.2835699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -322,7 +322,7 @@ class Solution:
     
     # TODO: 抓取（经常失败）
     def grasp(self):
-        method = "3"
+        method = "2"
 
         # 使用with self.image_lock, self.result_lock:获取图像、深度信息、边界框(bbox)和掩码(mask)的副本，以防止在抓取过程中数据被其他线程修改。
         with self.image_lock, self.result_lock:
@@ -344,7 +344,7 @@ class Solution:
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, np.pi / 2], degrees=False).as_quat()
         elif method == "2":
             grasp_position = cloud[ _bbox[0], _bbox[1] - _bbox[3] // 2 + 8][:3]
-            grasp_position[2] = -0.175
+            grasp_position[2] = -0.177
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, 0], degrees=False).as_quat()
         else:
             bbox_mask = self._bbox2mask(_image, _bbox)
@@ -357,7 +357,7 @@ class Solution:
         self.arm.move_end_to_pose(grasp_position, grasp_rotation)
         time.sleep(4)
         self.gripper.close()
-        time.sleep(4)
+        time.sleep(5)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
     # 这是一个静态方法，用于可视化抓取过程。它不直接参与机器人的物理操作，而是用于调试和展示抓取策略。
@@ -403,11 +403,14 @@ class Solution:
     def close_microwave(self):
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
         self.base.move_to(*self.POSE_CLOSE_MICROWAVE, 'world', False)
+        time.sleep(2)
 
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE)
         self.arm.move_end_to_pose(*self.ARM_POSE_CLOSE_MICROWAVE_END)
         output_pose1 = (np.array([-0.25, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
         self.base.move_to(*output_pose1, 'robot', True)
+
+        time.sleep(2)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
     # 将碗放置到低柜
@@ -526,7 +529,7 @@ if __name__ == '__main__':
     # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
     logger.info("Arrived the cap and then i plan to grip the cab")      
     s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
-    time.sleep(2)
+    time.sleep(3)
     s.gripper.close()
     time.sleep(5)
     
@@ -571,7 +574,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------
     # TODO： 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
     logger.info("Now suppose the pose is OK. I plan to find white mug")
-    s._prompt = 'A white cup with a handle'
+    cup_prompts = ['white cup with a handle','white mug','white bowl','coffie cup']
     s.detector.set_classes(["A white cup with a handle"])
     s.base.move_to(*s.GRASP_POSE_2, 'world', False)  # TODO: nav的最短路写的有点蠢,多试试看
     s.base.move_to(*s.GRASP_POSE_1, 'world', False)
