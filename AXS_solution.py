@@ -97,7 +97,7 @@ class Solution:
         [-0.04836788, 0.0417043, 0.66597635, 0.74323402]))
 
     OBSERVE_ARM_POSE_1 = (np.array([
-        0.2805699,
+        0.2835699,
         0.2,
         0.171663168,
     ]), np.array([
@@ -108,7 +108,7 @@ class Solution:
     ]))
     
     OBSERVE_ARM_POSE_2 = (np.array([
-        0.2805699,
+        0.2835699,
         -0.2,
         0.171663168,
     ]), np.array([
@@ -687,7 +687,7 @@ if __name__ == '__main__':
                     s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
                 else:
                     s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                cp = s.lookforonce(0.2, 0.6)
+                cp = s.lookforonce(0.4, 0.6)
                 if cp is not None:
                     break
             look_num.append(1)
@@ -740,7 +740,7 @@ if __name__ == '__main__':
                     s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
                 else:
                     s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
-                cp = s.lookforonce(0.2, 0.6)
+                cp = s.lookforonce(0.4, 0.6)
                 if cp is not None:
                     break
                 look_num.append(1)
