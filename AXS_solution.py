@@ -148,7 +148,7 @@ class Solution:
         self.segmentor = EfficientViTSamPredictor(efficientvit_sam)
 
 
-        # TODO: cuda error
+        # TODO: cuda kernel error in 12.2/12.1
         self.grasper = GraspPredictor(model='graspnet')
 
         self.image_lock = Lock()
@@ -216,7 +216,7 @@ class Solution:
         with self.result_lock:
             self._mask = copy.deepcopy(value)
 
-    # TODO: 一个基于groundingdino和fastsam的实例分割，可以尝试改为我的算法
+    # 获取一次实例分割结果
     def update_once(self):
         with self.image_lock, self.result_lock:
             self._image = copy.deepcopy(self.camera.get_rgb())
@@ -320,7 +320,7 @@ class Solution:
         cam_cloud = np.copy(np.concatenate((cam_cloud, image), axis=2))
         return camera2base(cam_cloud, shift, end_pose)
     
-    # TODO: 抓取（经常失败）
+    # TODO: 抓取本身不容易失败，但是定位有问题的时候很容易对着空气抓
     def grasp(self):
         method = "2"
 
@@ -450,7 +450,7 @@ class Solution:
         self.base.move_to(*output_pose, 'robot', True)
         self.arm.move_end_to_pose(*self.ARM_POSE_STANDARD_MOVING)
 
-    # TODO：利用大模型做实例分割、点云转换、输出物体中心相对世界坐标系下位置的核心函数
+    # 利用大模型做实例分割之后、开始点云转换、输出物体中心相对世界坐标系下位置的核心函数
     def lookforonce(self, det_th, sam_th):
         with self.image_lock, self.result_lock:
             _rgb = copy.deepcopy(self.camera.get_rgb())
@@ -458,7 +458,7 @@ class Solution:
             _det_result = copy.deepcopy(self._det_result)
             _sam_result = copy.deepcopy(self._sam_result)
         _bbox = _det_result['bbox'].cpu().numpy().astype(int)  # 检测框
-        _mask = _sam_result['mask'] # TODO：掩码结果，确定是否是一个二值图
+        _mask = _sam_result['mask'] # 掩码结果
         if np.any(_mask) is False: # 检查分割掩码是否存在。如果掩码完全不存在（即没有找到任何目标物体），则打印提示信息并跳过后续步骤。
             logger.info(f"direction {direction} not Found")
             
@@ -499,12 +499,12 @@ if __name__ == '__main__':
     s = Solution()
 
     # -----------------------------------------------------------------
-    # TODO: 任务一优先完成
+    # 任务一需要保证能够优先、稳定完成
     # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
     logger.info("First, I plan to find white mug")
     cup_prompts = ['white cup with a handle','white mug','white bowl','coffie cup']
     s.detector.set_classes(["A white cup with a handle"])
-    s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: nav的最短路写的有点蠢,多试试看
+    s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: 这些local planner的nav效果有点蠢,多试试看
     time.sleep(2)
     cp = None
     look_num = 0
@@ -580,7 +580,7 @@ if __name__ == '__main__':
     time.sleep(6)
 
     # --------------------------------------------------------------------------------
-    # TODO: 任务二的时间不太够
+    # TODO: 比较难的任务，目前最重要的是能够智能检测柜门是否打开（利用realsense）
     # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
     for _ in range(2):
         logger.info("Now I try to open the cab")
