@@ -344,7 +344,7 @@ class Solution:
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, np.pi / 2], degrees=False).as_quat()
         elif method == "2":
             grasp_position = cloud[ _bbox[0], _bbox[1] - _bbox[3] // 2 + 8][:3]
-            grasp_position[2] = -0.177
+            grasp_position[2] = -0.178
             grasp_rotation = Rotation.from_euler('xyz', [0, np.pi / 2, 0], degrees=False).as_quat()
         else:
             bbox_mask = self._bbox2mask(_image, _bbox)
@@ -498,86 +498,14 @@ class Solution:
 if __name__ == '__main__':
     s = Solution()
 
-    # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
-    logger.info("I plan to open the cab")
-    s.base.move_to(*s.POSE_OPEN_CAB, 'world', False) 
-    time.sleep(3)
-
-    # 表示柜门把手在世界坐标系中的位置。这个位置是预先测量或通过某种方式计算得出的。
-    POS_DOOR_HANDLE = np.array([0.30353946626186371, 1.230472918510437, 0])
-
-    # 计算底座旋转矩阵的逆，然后通过点乘操作将上一步计算的向量转换到底座的局部坐标系中。
-    # 这一步是为了得到把手位置相对于机器人底座的局部坐标，因为接下来的s.arm.move_end_to_pose操作是基于机器人本身的坐标系进行的。
-    centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((POS_DOOR_HANDLE-s.base.position))
-    
-    # 确定机械臂的目标位置和姿态
-    # 位置是根据把手的局部坐标计算的。这里的数值调整是基于机器人的具体尺寸和抓取动作的需要。
-    # 注意arm_base 相对 car_base_link 的 offset是 (0.2975, -0.17309, 0.3488)
-    # 姿态(np.array([0.0, 0.0, 0.0, 1.0]))这里是一个四元数，表示机械臂末端执行器的朝向。
-    # 在这个例子中，它被设置为没有旋转（即朝向不变），这意味着末端执行器将保持默认的方向不变。
-    ARM_POSE_DOOR_HANDLE = (np.array([
-                    centerp_car[0] - 0.2975 -0.01,
-                    centerp_car[1] + 0.17309 -0.01,
-                    0.2,  # 夹爪相对起点的末端高度
-                ]), np.array([
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                ]))
-
-    # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
-    logger.info("Arrived the cap and then i plan to grip the cab")      
-    s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
-    time.sleep(3)
-    s.gripper.close()
-    time.sleep(5)
-    
-    
-    # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
-    logger.info("Now i will use 7 steps to open the cab")   
-    for i in range(7):
-        # 计算当前迭代的角度，单位为弧度。这个角度用于后续计算机械臂的新位置和朝向。每次循环逐步增加打开柜门的角度
-        d = 0.1 * (i + 1)  
-        # 计算机械臂新的位置。基本思路是从初始位置（即抓住柜门把手的位置）开始，根据当前的角度d来调整位置。
-        # [-0.4*math.sin(d), 0.4-0.4*math.cos(d), 0]计算了基于角度d的位置偏移量。这个偏移量模拟了当门打开时，门把手沿着一个半径为0.4的圆弧移动的路径。
-        new_pos = ARM_POSE_DOOR_HANDLE[0] + np.array([-0.4*math.sin(d), 0.4-0.4*math.cos(d), 0])
-        # 根据当前角度d计算新的朝向（四元数格式）。Rotation.from_euler方法用于根据欧拉角创建一个旋转对象。
-        # 这里，旋转仅应用于z轴（[0, 0, -d]），表示柜门围绕z轴旋转打开。
-        # 四元数是一种用于表示空间旋转的数学工具，它可以避免万向锁问题，并且计算效率较高。
-        r = Rotation.from_euler("xyz", np.array([0, 0, -d]), degrees=False)
-        new_ori = r.as_quat()
-        # 命令机械臂移动到新的位置和朝向，模拟打开柜门的动作。
-        s.arm.move_end_to_pose(new_pos, np.array(new_ori))
-        time.sleep(0.5)
-    
-    # 打开夹爪
-    logger.info("Suppose the cab is opened a little and i will loose the gripper")   
-    s.gripper.open()
-    time.sleep(5)
-
-    # 这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，抓住已经打开了一半的门
-    logger.info("I will move the arm and base to largely open the cab.")   
-    s.arm.move_end_to_pose(np.array([0.3225, 0.00, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
-    s.arm.move_end_to_pose(np.array([0.3225, -0.25, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
-    s.arm.move_end_to_pose(np.array([0.5615004168820418, -0.2, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
-    s.arm.move_end_to_pose(np.array([0.6015004168820418, -0.15, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
-    
-    # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，向后把门大幅拉出
-    # 然后机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
-    s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
-    back_pose = (np.array([-0.05, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
-    s.base.move_to(*back_pose, 'robot', True)
-    s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
-    logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (find the white beizi)") 
-
     # -----------------------------------------------------------------
-    # TODO： 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
-    logger.info("Now suppose the pose is OK. I plan to find white mug")
+    # TODO: 任务一优先完成
+    # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
+    logger.info("First, I plan to find white mug")
     cup_prompts = ['white cup with a handle','white mug','white bowl','coffie cup']
     s.detector.set_classes(["A white cup with a handle"])
-    s.base.move_to(*s.GRASP_POSE_2, 'world', False)  # TODO: nav的最短路写的有点蠢,多试试看
-    s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+    s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: nav的最短路写的有点蠢,多试试看
+    time.sleep(2)
     cp = None
     look_num = 0
     # 循环寻找目标物体
@@ -599,6 +527,19 @@ if __name__ == '__main__':
         look_num += 1
         if look_num>2:
             break
+    
+    if cp is None:
+        s.base.move_to(*s.GRASP_POSE_2, 'world', False) 
+        
+        for direction in [1, 2]:
+            if direction == 1:
+                s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_1)
+            else:
+                s.arm.move_end_to_pose(*s.OBSERVE_ARM_POSE_2)
+            time.sleep(3)
+            cp = s.lookforonce(0.65,0.65)
+            if cp is not None:
+                break
 
     # 对找到的目标进行操作
     if cp is not None:
@@ -638,11 +579,86 @@ if __name__ == '__main__':
     s.close_microwave()
     time.sleep(6)
 
-    # -----------------------------------------------------------------
+    # --------------------------------------------------------------------------------
     # TODO: 任务二的时间不太够
+    # 将机器人的底座移动到打开柜门的起始位置和姿态。这个位姿是相对于世界坐标系的，用于机器人接近柜门以便后续打开它。
+    for _ in range(2):
+        logger.info("Now I try to open the cab")
+        s.base.move_to(*s.POSE_OPEN_CAB, 'world', False) 
+        time.sleep(2)
+
+        # 表示柜门把手在世界坐标系中的位置。这个位置是预先测量或通过某种方式计算得出的。
+        POS_DOOR_HANDLE = np.array([0.30353946626186371, 1.230472918510437, 0])
+
+        # 计算底座旋转矩阵的逆，然后通过点乘操作将上一步计算的向量转换到底座的局部坐标系中。
+        # 这一步是为了得到把手位置相对于机器人底座的局部坐标，因为接下来的s.arm.move_end_to_pose操作是基于机器人本身的坐标系进行的。
+        centerp_car = np.linalg.inv(np.array(Rotation.from_quat(s.base.rotation).as_matrix())).dot((POS_DOOR_HANDLE-s.base.position))
+        
+        # 确定机械臂的目标位置和姿态
+        # 位置是根据把手的局部坐标计算的。这里的数值调整是基于机器人的具体尺寸和抓取动作的需要。
+        # 注意arm_base 相对 car_base_link 的 offset是 (0.2975, -0.17309, 0.3488)
+        # 姿态(np.array([0.0, 0.0, 0.0, 1.0]))这里是一个四元数，表示机械臂末端执行器的朝向。
+        # 在这个例子中，它被设置为没有旋转（即朝向不变），这意味着末端执行器将保持默认的方向不变。
+        ARM_POSE_DOOR_HANDLE = (np.array([
+                        centerp_car[0] - 0.2975 -0.01,
+                        centerp_car[1] + 0.17309 -0.01,
+                        0.2,  # 夹爪相对起点的末端高度
+                    ]), np.array([
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                    ]))
+
+        # 控制机械臂移动到柜门把手的位置, 并使用gripper.close()命令闭合夹爪来抓住把手。（基于arm_base坐标系）
+        logger.info("Arrived the cap and then i plan to grip the cab")      
+        s.arm.move_end_to_pose(*ARM_POSE_DOOR_HANDLE)
+        time.sleep(2)
+        s.gripper.close()
+        time.sleep(5)
+        
+        
+        # 逐渐打开柜门。在每次循环中，机械臂以不同的角度移动，模拟打开柜门的动作。
+        logger.info("Now i will use 7 steps to open the cab")   
+        for i in range(7):
+            # 计算当前迭代的角度，单位为弧度。这个角度用于后续计算机械臂的新位置和朝向。每次循环逐步增加打开柜门的角度
+            d = 0.1 * (i + 1)  
+            # 计算机械臂新的位置。基本思路是从初始位置（即抓住柜门把手的位置）开始，根据当前的角度d来调整位置。
+            # [-0.4*math.sin(d), 0.4-0.4*math.cos(d), 0]计算了基于角度d的位置偏移量。这个偏移量模拟了当门打开时，门把手沿着一个半径为0.4的圆弧移动的路径。
+            new_pos = ARM_POSE_DOOR_HANDLE[0] + np.array([-0.4*math.sin(d), 0.4-0.4*math.cos(d), 0])
+            # 根据当前角度d计算新的朝向（四元数格式）。Rotation.from_euler方法用于根据欧拉角创建一个旋转对象。
+            # 这里，旋转仅应用于z轴（[0, 0, -d]），表示柜门围绕z轴旋转打开。
+            # 四元数是一种用于表示空间旋转的数学工具，它可以避免万向锁问题，并且计算效率较高。
+            r = Rotation.from_euler("xyz", np.array([0, 0, -d]), degrees=False)
+            new_ori = r.as_quat()
+            # 命令机械臂移动到新的位置和朝向，模拟打开柜门的动作。
+            s.arm.move_end_to_pose(new_pos, np.array(new_ori))
+            time.sleep(0.5)
+        
+        # 打开夹爪
+        logger.info("Suppose the cab is opened a little and i will loose the gripper")   
+        s.gripper.open()
+        time.sleep(5)
+
+        # 这里每一步的位置和姿态参数都是根据具体任务需求、机器人的工作环境以及目标物体的位置精心计算和调试得出的，抓住已经打开了一半的门
+        logger.info("I will move the arm and base to largely open the cab.")   
+        s.arm.move_end_to_pose(np.array([0.3225, 0.00, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
+        s.arm.move_end_to_pose(np.array([0.3225, -0.25, 0.219]), np.array([0.0, 0.0, 0.0, 1.0]))
+        s.arm.move_end_to_pose(np.array([0.5615004168820418, -0.2, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
+        s.arm.move_end_to_pose(np.array([0.6015004168820418, -0.15, 0.35123932220414126]), np.array([0.0, 0.0, 0.2953746452532359, 0.9547541169761965]))
+        
+        # 机器人底座向后移动0.05米的操作，这可能是为了在操作后调整机器人的位置，向后把门大幅拉出
+        # 然后机械臂移动回一个“标准移动”位置，这可能是一个安全位置或者准备进行下一步操作的位置
+        s.arm.move_end_to_pose(np.array([0.4882092425581316, 0.2917225555849343, 0.3515424067641672]), np.array([0.0, 0.0, 0.6045684271573144, 0.7957869908463996]))
+        back_pose = (np.array([-0.05, 0.0, 0.0]), np.array([0.0, 0.0, 0.0, 1.0]))  
+        s.base.move_to(*back_pose, 'robot', True)
+        s.arm.move_end_to_pose(*s.ARM_POSE_STANDARD_MOVING)
+    
+    logger.info("Suppose the cab is opened definitely and i will prepare for the next plan (place the pink/brown bowls)") 
+
     # 这段代码通过在不同的位置寻找目标物体（碗），并根据颜色将它们分类放置到不同的柜子中，展示了机器人在识别和操控物体方面的能力。
     # 通过调整观察位置、使用颜色作为分类依据，以及灵活地处理未找到目标物体的情况，这个过程展示了一种基本的自动化任务处理流程。
-    logger.info("Now suppose the microware is OK. I plan to find cups")
+    logger.info("Now suppose the microware is OK. I plan to find bowls")
     obj_rgb = []
     combined_labels_for_bowl = [
         'bowl', 'cup', 'vessel', 'container', 'dish', 'basin', 'receptacle', 'pot', 
@@ -663,7 +679,7 @@ if __name__ == '__main__':
     for j in range(5):
         s._prompt = 'bowl'
         cp = None
-        s.base.move_to(*s.GRASP_POSE_1, 'world', False)
+        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
         look_num = []
         while cp is None:
             for direction in [1, 2]:
@@ -711,12 +727,12 @@ if __name__ == '__main__':
 
     # 第二个循环与第一个循环类似，不同之处在于寻找碗的起始位置（由GRASP_POSE_2定义）。这可能意味着机器人将从不同的位置或角度寻找碗，以确保能够找到更多碗。
     # 在第二个循环中，找到的碗的颜色（存储在obj_rgb_2列表中）会与第一个循环中找到的第一个碗的颜色进行比较，以决定放置的位置。如果第一个循环中没有找到任何碗（obj_rgb列表为空），则使用obj_rgb_2列表中的第一个碗的颜色作为参考。
-    logger.info("I plan to change the base and continue to find cups")
+    logger.info("I plan to change the base and continue to find bowls")
     obj_rgb_2 = []
     for j in range(5):
         s._prompt = 'bowl'
         cp = None
-        s.base.move_to(*s.GRASP_POSE_2, 'world', False)
+        s.base.move_to(*s.GRASP_POSE_1, 'world', False)
         look_num = []
         while cp is None:
             for direction in [1, 2]:
