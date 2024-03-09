@@ -2,6 +2,9 @@
 Solution of BIT-LINC team 
 
 <div align="left">
+  <img src="./assets/corner.png" width="80%">
+</div>
+<div align="left">
   <img src="./assets/team.png" width="80%">
 </div>
 
