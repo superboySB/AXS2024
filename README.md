@@ -9,7 +9,8 @@ Solution of BIT-LINC team
 </div>
 
 ## What's News!!!
-The simulation stage of the competition has begun. Please submit your client-side Docker image to the team's Docker Hub, following GitHub's instructions. Additionally, submit your Docker Hub account and operation instructions of your client docker to the organizing committee via “Mail" section of the website before 23:59 on March10. The organizing committee will evaluate the competition based on the code submitted by the team. Teams must also submit a technical report. The template for the report can be downloaded from the Data section of the website and should be sent to sim2real@air.tsinghua.edu.cn before 11:59 pm on March 14. The results of the simulation phase will be determined by a "test result: technical report" ratio of 7:3. Final scores will be published on March 15 via the website.
+In the final week, we made some slight modifications to the routine, which allowed us to advance into the semi-finals. Moving forward, we can continue to contemplate and make improvements during the stage where we have access to physical machine testing.
+[![82689fbe968e1e2e32377790975963f.png](https://i.postimg.cc/c1MqdXgV/82689fbe968e1e2e32377790975963f.png)](https://postimg.cc/Hjxv20t2)
 
 ## Install 
 git clone
