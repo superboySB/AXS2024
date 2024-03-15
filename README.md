@@ -9,7 +9,7 @@ Solution of BIT-LINC team
 </div>
 
 ## What's News!!!
-In the final week, we made some slight modifications to the routine, which allowed us to advance into the semi-finals. Moving forward, we can continue to contemplate and make improvements during the stage where we have access to physical machine testing.
+In the final week, we made some slight modifications to the example solution, which allowed us to advance into the semi-finals. Moving forward, we can continue to contemplate and make improvements during the stage where we have access to physical machine testing.
 [![82689fbe968e1e2e32377790975963f.png](https://i.postimg.cc/c1MqdXgV/82689fbe968e1e2e32377790975963f.png)](https://postimg.cc/Hjxv20t2)
 
 ## Install 
