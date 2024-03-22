@@ -502,7 +502,7 @@ if __name__ == '__main__':
     # 任务一需要保证能够优先、稳定完成
     # 计划：寻找并抓取白色的杯子，并放到微波炉中，关闭微波炉门
     logger.info("First, I plan to find white mug")
-    cup_prompts = ['white cup with a handle','white mug','white bowl','coffie cup']
+    cup_prompts = ['white cup with a handle','white mug','white cup']
     s.detector.set_classes(["A white cup with a handle"])
     s.base.move_to(*s.GRASP_POSE_1, 'world', False)  # TODO: 这些local planner的nav效果有点蠢,多试试看
     time.sleep(2)
