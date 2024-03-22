@@ -22,7 +22,7 @@ Build two containers, one for Omni Gibson and one for our method (based on the b
 ./scripts/run_omni.sh
 
 # You can also directly pull the image locally, for example: 
-# docker build -t superboysb/axs2024:20240309 .
+# docker build -t superboysb/axs2024:20240322 .
 ./scripts/run_our_solution.sh
 ```
 For ROS-related topics, you can first refer to the [official tutorial](docs/sim2real-install-guide.md)。
